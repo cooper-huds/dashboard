@@ -6,6 +6,13 @@
  <title>CloverPath Dashboard</title>
  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
  <style>
+ html, body {
+ margin: 0;
+ padding: 0;
+ width: 100%;
+ height: 100%;
+ overflow-x: hidden;
+}
  /* SCOPED RESET - Only affects elements inside .cloverpath-dashboard */
  .cloverpath-dashboard,
  .cloverpath-dashboard *,
@@ -22,7 +29,6 @@
 
  /* Prevent Webflow styles from bleeding in */
  .cloverpath-dashboard {
- all:initial;
  display:block;
  font-family:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
  background:#fafafa;
