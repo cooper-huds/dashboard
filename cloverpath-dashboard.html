@@ -1247,7 +1247,53 @@
  </svg>
  Change Password
  </button>
- <button class="profile-action-btn" id="manageSubBtn" style="display:none;" onclick="alert('Billing portal coming soon!')">
+ document.getElementById('cpManageSubBtn').addEventListener('click', async function() {
+    const btn = this;
+    const originalText = btn.querySelector('span').textContent;
+    
+    // Show loading state
+    btn.disabled = true;
+    btn.querySelector('span').textContent = 'Loading...';
+    
+    try {
+        // Get current session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !session) {
+            alert('Please log in to manage your subscription.');
+            window.location.href = 'https://www.cloverpath.co/login';
+            return;
+        }
+        
+        // Call the Edge Function to create a portal session
+        const response = await fetch('https://clhuplhaejneecbyhphh.supabase.co/functions/v1/create-portal-session', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({
+                return_url: window.location.href,
+            }),
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to open subscription portal');
+        }
+        
+        if (data.url) {
+            window.location.href = data.url;
+        }
+        
+    } catch (error) {
+        console.error('Manage subscription error:', error);
+        alert(error.message || 'Something went wrong. Please try again.');
+        btn.disabled = false;
+        btn.querySelector('span').textContent = originalText;
+    }
+});
  <svg class="icon" style="width:14px;height:14px;" viewBox="0 0 24 24">
  <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
  <line x1="1" y1="10" x2="23" y2="10"></line>
