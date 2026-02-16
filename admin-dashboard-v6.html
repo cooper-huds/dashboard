@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CloverPath Admin Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Lato', -apple-system, BlinkMacSystemFont, sans-serif; background: #f8fafc; color: #1e293b; min-height: 100vh; }
+    .topbar { position: fixed; top: 0; left: 0; right: 0; height: 64px; background: #fff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; z-index: 1000; }
+    .topbar-left { display: flex; align-items: center; gap: 16px; }
+    .mobile-menu-btn { display: none; background: none; border: none; cursor: pointer; padding: 8px; border-radius: 6px; }
+    .mobile-menu-btn:hover { background: #f1f5f9; }
+    .mobile-menu-btn svg { width: 24px; height: 24px; stroke: #64748b; fill: none; stroke-width: 2; }
+    .topbar-logo { height: 36px; }
+    .admin-badge { font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 4px; background: linear-gradient(135deg, #008208, #00a00a); color: #fff; text-transform: uppercase; letter-spacing: 0.5px; }
+    .topbar-center { display: flex; align-items: center; gap: 8px; }
+    .global-search { position: relative; width: 320px; }
+    .global-search input { width: 100%; padding: 10px 14px 10px 40px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; background: #f8fafc; }
+    .global-search input:focus { outline: none; border-color: #008208; background: #fff; box-shadow: 0 0 0 3px rgba(0,130,8,0.1); }
+    .global-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; stroke: #94a3b8; fill: none; stroke-width: 2; }
+    .global-search .shortcut { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 11px; color: #94a3b8; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
+    .topbar-right { display: flex; align-items: center; gap: 8px; }
+    .profile-dropdown { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 10px; border-radius: 8px; border: 1px solid transparent; }
+    .profile-dropdown:hover { background: #f8fafc; border-color: #e2e8f0; }
+    .profile-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #008208, #00a00a); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+    .profile-info { display: flex; flex-direction: column; }
+    .profile-name { font-size: 14px; color: #1e293b; font-weight: 600; }
+    .profile-role { font-size: 12px; color: #64748b; }
+    .layout { display: flex; padding-top: 64px; }
+    .sidebar { position: fixed; left: 0; top: 64px; width: 240px; height: calc(100vh - 64px); background: #fff; border-right: 1px solid #e2e8f0; overflow-y: auto; padding: 20px 0; transition: transform 0.3s ease; }
+    .nav-section { padding: 0 16px; margin-bottom: 24px; }
+    .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; cursor: pointer; color: #64748b; font-size: 14px; font-weight: 500; position: relative; }
+    .nav-item:hover { background: #f8fafc; color: #1e293b; }
+    .nav-item.active { background: #f0fdf4; color: #008208; font-weight: 600; }
+    .nav-item.active::before { content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 24px; background: #008208; border-radius: 0 3px 3px 0; }
+    .nav-item svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; flex-shrink: 0; }
+    .nav-badge { margin-left: auto; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: #dbeafe; color: #2563eb; }
+    .main-content { flex: 1; margin-left: 240px; padding: 24px; min-height: calc(100vh - 64px); }
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+    .page-header-left h1 { font-size: 24px; font-weight: 700; color: #0f172a; font-family: "Oswald", sans-serif; }
+    .page-header-left p { font-size: 14px; color: #64748b; margin-top: 4px; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; transition: all 0.15s; }
+    .btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .btn-primary { background: linear-gradient(135deg, #008208, #00a00a); color: #fff; }
+    .btn-primary:hover { background: linear-gradient(135deg, #006b07, #008208); box-shadow: 0 4px 12px rgba(0,130,8,0.3); }
+    .btn-secondary { background: #fff; color: #374151; border: 1px solid #d1d5db; }
+    .btn-secondary:hover { background: #f9fafb; border-color: #9ca3af; }
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: #fff; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0; }
+    .stat-card:hover { border-color: #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .stat-card.clickable { cursor: pointer; }
+    .stat-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+    .stat-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+    .stat-icon svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .stat-icon.green { background: #dcfce7; color: #16a34a; }
+    .stat-icon.blue { background: #dbeafe; color: #2563eb; }
+    .stat-icon.purple { background: #f3e8ff; color: #7c3aed; }
+    .stat-icon.amber { background: #fef3c7; color: #d97706; }
+    .stat-value { font-size: 32px; font-weight: 700; font-family: "Oswald", sans-serif; color: #0f172a; margin-bottom: 4px; }
+    .stat-label { font-size: 13px; color: #64748b; }
+    .card { background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 24px; }
+    .card-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid #f1f5f9; }
+    .card-title { font-size: 16px; font-weight: 700; color: #0f172a; }
+    .card-body { padding: 24px; }
+    .card-body.no-padding { padding: 0; }
+    .chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 24px; }
+    .chart-container { height: 280px; position: relative; }
+    .table-wrapper { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+    th.sortable { cursor: pointer; }
+    th.sortable:hover { color: #1e293b; }
+    td { padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    tr:hover { background: #fafafa; }
+    tr.clickable { cursor: pointer; }
+    .student-cell { display: flex; align-items: center; gap: 12px; }
+    .student-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #008208, #00a00a); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+    .student-info { display: flex; flex-direction: column; }
+    .student-name { font-weight: 600; color: #0f172a; }
+    .student-email { font-size: 12px; color: #64748b; }
+    .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .badge.excellent { background: #dcfce7; color: #16a34a; }
+    .badge.good { background: #dbeafe; color: #2563eb; }
+    .badge.fair { background: #fef3c7; color: #d97706; }
+    .badge.needs-work { background: #fee2e2; color: #dc2626; }
+    .badge.active { background: #dcfce7; color: #16a34a; }
+    .badge.completed { background: #dcfce7; color: #16a34a; }
+    .badge.in-progress { background: #fef3c7; color: #d97706; }
+    .badge.not-started { background: #f1f5f9; color: #64748b; }
+    .view-btn { padding: 6px 14px; background: #fff; color: #008208; border: 1px solid #008208; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .view-btn:hover { background: #f0fdf4; }
+    .filter-bar { display: flex; align-items: center; gap: 12px; padding: 16px; background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 24px; flex-wrap: wrap; }
+    .filter-group { display: flex; align-items: center; gap: 8px; }
+    .filter-label { font-size: 13px; font-weight: 600; color: #64748b; }
+    .filter-select { padding: 8px 32px 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; background: #fff; appearance: none; cursor: pointer; min-width: 140px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+    .filter-select:focus { outline: none; border-color: #008208; }
+    .pagination { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-top: 1px solid #f1f5f9; }
+    .pagination-info { font-size: 14px; color: #64748b; }
+    .pagination-controls { display: flex; gap: 4px; }
+    .pagination-btn { padding: 8px 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; cursor: pointer; }
+    .pagination-btn:hover:not(:disabled) { background: #f8fafc; border-color: #cbd5e1; }
+    .pagination-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .pagination-btn.active { background: #008208; color: #fff; border-color: #008208; }
+    .view { display: none; }
+    .view.active { display: block; }
+    .breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+    .breadcrumb-item { background: none; border: none; font-size: 14px; color: #64748b; cursor: pointer; padding: 0; font-family: inherit; }
+    .breadcrumb-item:hover { color: #008208; text-decoration: underline; }
+    .breadcrumb-item.active { color: #0f172a; font-weight: 600; cursor: default; }
+    .breadcrumb-item.active:hover { text-decoration: none; }
+    .breadcrumb-sep { color: #cbd5e1; }
+    .student-detail-header { display: flex; gap: 24px; padding: 24px; background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border-radius: 12px; margin-bottom: 24px; align-items: center; }
+    .student-detail-avatar { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #008208, #00a00a); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; flex-shrink: 0; }
+    .student-detail-info { flex: 1; }
+    .student-detail-name { font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 4px; display: flex; align-items: center; gap: 12px; }
+    .student-detail-meta { display: flex; gap: 16px; flex-wrap: wrap; }
+    .student-detail-meta span { font-size: 14px; color: #64748b; display: flex; align-items: center; gap: 6px; }
+    .student-detail-meta svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .activity-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px; }
+    .activity-card { background: #fff; border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0; text-align: center; position: relative; overflow: hidden; }
+    .activity-card.complete::after { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: #16a34a; }
+    .activity-card.partial::after { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: #f59e0b; }
+    .activity-card-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; }
+    .activity-card-icon svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .activity-card-icon.green { background: #dcfce7; color: #16a34a; }
+    .activity-card-icon.blue { background: #dbeafe; color: #2563eb; }
+    .activity-card-icon.purple { background: #f3e8ff; color: #7c3aed; }
+    .activity-card-icon.amber { background: #fef3c7; color: #d97706; }
+    .activity-card-value { font-size: 24px; font-weight: 700; font-family: "Oswald", sans-serif; color: #0f172a; }
+    .activity-card-label { font-size: 12px; color: #64748b; margin-top: 4px; }
+    .engagement-item { flex: 1; text-align: center; padding: 20px; background: #f8fafc; border-radius: 12px; }
+    .engagement-item-value { font-size: 32px; font-weight: 700; font-family: "Oswald", sans-serif; }
+    .engagement-item-label { font-size: 13px; color: #64748b; margin-top: 4px; }
+    .engagement-item.interviews .engagement-item-value { color: #2563eb; }
+    .engagement-item.companies .engagement-item-value { color: #16a34a; }
+    .engagement-item.resumes .engagement-item-value { color: #7c3aed; }
+    .engagement-item.linkedin .engagement-item-value { color: #d97706; }
+    .resource-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-top: 24px; }
+    .resource-card { background: #f8fafc; border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0; }
+    .resource-card:hover { border-color: #7c3aed; }
+    .resource-card-title { font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 4px; }
+    .resource-card-stat { font-size: 13px; color: #64748b; }
+    .section-divider { margin: 32px 0; padding-top: 32px; border-top: 1px solid #e2e8f0; }
+    .section-title { font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .section-title svg { width: 20px; height: 20px; stroke: #7c3aed; fill: none; stroke-width: 2; }
+    @media (max-width: 1280px) { .stats-grid, .activity-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 1024px) { .sidebar { transform: translateX(-100%); z-index: 999; } .sidebar.mobile-open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,0.1); } .main-content { margin-left: 0; } .mobile-menu-btn { display: block; } .global-search { display: none; } .chart-grid { grid-template-columns: 1fr; } }
+    .sim-ring-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+    .sim-ring-card { background: #fff; border-radius: 16px; padding: 28px 24px; border: 1px solid #e2e8f0; text-align: center; cursor: pointer; transition: all 0.2s; position: relative; overflow: hidden; }
+    .sim-ring-card::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 4px; background: linear-gradient(90deg, #e2e8f0, #e2e8f0); transition: background 0.3s; }
+    .sim-ring-card.green-border::before { background: linear-gradient(90deg, #16a34a, #22c55e); }
+    .sim-ring-card.amber-border::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    .sim-ring-card.red-border::before { background: linear-gradient(90deg, #ef4444, #f87171); }
+    .sim-ring-card:hover { border-color: #cbd5e1; box-shadow: 0 8px 24px rgba(0,0,0,0.08); transform: translateY(-3px); }
+    .sim-ring-card.expanded { border-color: #008208; box-shadow: 0 8px 32px rgba(0,130,8,0.15); }
+    .progress-ring { position: relative; width: 140px; height: 140px; margin: 0 auto 16px; }
+    .progress-ring svg { transform: rotate(-90deg); }
+    .progress-ring-bg { fill: none; stroke: #f1f5f9; stroke-width: 12; }
+    .progress-ring-fill { fill: none; stroke-width: 12; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
+    .progress-ring-fill.green { stroke: url(#greenGradient); }
+    .progress-ring-fill.amber { stroke: url(#amberGradient); }
+    .progress-ring-fill.red { stroke: url(#redGradient); }
+    .progress-ring-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+    .progress-ring-pct { font-size: 28px; font-weight: 700; font-family: "Oswald", sans-serif; color: #0f172a; }
+    .progress-ring-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+    .sim-ring-name { font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 12px; }
+    .sim-ring-stats { display: flex; justify-content: center; gap: 20px; }
+    .sim-ring-stat { text-align: center; }
+    .sim-ring-stat-value { font-size: 18px; font-weight: 700; font-family: "Oswald", sans-serif; }
+    .sim-ring-stat-value.green { color: #16a34a; }
+    .sim-ring-stat-value.amber { color: #f59e0b; }
+    .sim-ring-stat-value.gray { color: #94a3b8; }
+    .sim-ring-stat-label { font-size: 11px; color: #64748b; }
+    .sim-avg-score { font-size: 13px; color: #64748b; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .sim-expand-panel { max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease; }
+    .sim-expand-panel.open { max-height: 300px; padding-top: 16px; margin-top: 16px; border-top: 1px solid #f1f5f9; }
+    .sim-expand-content { text-align: left; }
+    .sim-expand-summary { display: flex; justify-content: space-around; margin-bottom: 16px; }
+    .sim-expand-stat { text-align: center; }
+    .sim-expand-stat-value { font-size: 20px; font-weight: 700; font-family: "Oswald", sans-serif; }
+    .sim-expand-stat-label { font-size: 11px; color: #64748b; }
+    .sim-view-btn { width: 100%; padding: 10px; background: linear-gradient(135deg, #008208, #00a00a); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .sim-view-btn:hover { background: linear-gradient(135deg, #006b07, #008208); }
+    .sim-view-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .major-section { margin-bottom: 32px; }
+    .major-section-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+    .major-section-title h3 { font-size: 18px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 12px; }
+    .major-section-title .major-icon { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #008208, #00a00a); display: flex; align-items: center; justify-content: center; }
+    .major-section-title .major-icon svg { width: 20px; height: 20px; stroke: #fff; fill: none; stroke-width: 2; }
+    .major-section-meta { display: flex; gap: 20px; font-size: 14px; }
+    .major-section-meta-item { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: #f8fafc; border-radius: 8px; }
+    .major-section-meta-item strong { font-family: "Oswald", sans-serif; font-size: 18px; }
+    .major-progress-bar { height: 8px; background: #f1f5f9; border-radius: 4px; margin-bottom: 24px; overflow: hidden; display: flex; }
+    .major-progress-bar .completed { background: linear-gradient(90deg, #16a34a, #22c55e); }
+    .major-progress-bar .in-progress { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    @media (max-width: 640px) { .main-content { padding: 16px; } .stats-grid, .activity-grid { grid-template-columns: 1fr 1fr; } .student-detail-header { flex-direction: column; text-align: center; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="mobile-menu-btn" onclick="toggleMobileMenu()"><svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+      <img src="https://cdn.prod.website-files.com/68bf2f9e0722f5e0b402ad4d/691bf346a23098b5a5a4c19b_CloverPath_HorizontalLogo_FullColor.png" alt="CloverPath" class="topbar-logo">
+      <span class="admin-badge">Admin</span>
+    </div>
+    <div class="topbar-center">
+      <div class="global-search">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Search students..." id="globalSearch" oninput="handleGlobalSearch()">
+        <span class="shortcut">⌘K</span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="profile-dropdown">
+        <div class="profile-avatar">CS</div>
+        <div class="profile-info"><span class="profile-name">Career Services</span><span class="profile-role">Administrator</span></div>
+      </div>
+    </div>
+  </header>
+  
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="nav-section">
+        <div class="nav-item active" data-view="dashboard" onclick="showView('dashboard')"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboard</div>
+        <div class="nav-item" data-view="students" onclick="showView('students')"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Students<span class="nav-badge" id="studentCountBadge">35</span></div>
+        <div class="nav-item" data-view="learning" onclick="showView('learning')"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>Simulations</div>
+        <div class="nav-item" data-view="tools" onclick="showView('tools')"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Tools & Resources</div>
+      </div>
+    </aside>
+    
+    <main class="main-content">
+      <div class="view active" id="view-dashboard">
+        <div class="page-header">
+          <div class="page-header-left"><h1>Dashboard</h1><p>Track student career readiness and engagement</p></div>
+          <div class="page-actions"><button class="btn btn-secondary" onclick="exportData()"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export</button></div>
+        </div>
+        <div class="stats-grid" id="dashboardStats"></div>
+        <div class="chart-grid">
+          <div class="card">
+            <div class="card-header"><h3 class="card-title">Career Readiness Score Distribution</h3></div>
+            <div class="card-body"><div class="chart-container"><canvas id="readinessDistChart"></canvas></div></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3 class="card-title">Platform Engagement</h3></div>
+            <div class="card-body"><div style="display: flex; gap: 16px;" id="engagementOverview"></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h3 class="card-title">Activity Overview</h3><span style="font-size: 13px; color: #64748b;">Total engagement across all students</span></div>
+          <div class="card-body"><div class="activity-grid" id="activityOverview"></div></div>
+        </div>
+      </div>
+
+      <div class="view" id="view-students">
+        <div class="page-header"><div class="page-header-left"><h1>All Students</h1><p>Track student progress toward career readiness</p></div><div class="page-actions"><button class="btn btn-secondary" onclick="exportData()"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export</button></div></div>
+        <div class="filter-bar">
+          <div class="filter-group"><span class="filter-label">Major:</span><select class="filter-select" id="filterMajor" onchange="applyFilters()"><option value="">All Majors</option></select></div>
+          <div class="filter-group"><span class="filter-label">Class:</span><select class="filter-select" id="filterClass" onchange="applyFilters()"><option value="">All Classes</option></select></div>
+        </div>
+        <div class="card">
+          <div class="card-body no-padding"><div class="table-wrapper"><table><thead><tr><th class="sortable" onclick="sortTable('name')">Student</th><th class="sortable" onclick="sortTable('major')">Major</th><th class="sortable" onclick="sortTable('readiness')">Readiness Score</th><th>Activities</th><th>Simulations</th><th></th></tr></thead><tbody id="studentsTableBody"></tbody></table></div><div class="pagination"><div class="pagination-info" id="paginationInfo">Showing 1-10 of 35</div><div class="pagination-controls" id="paginationControls"></div></div></div>
+        </div>
+      </div>
+
+      <div class="view" id="view-student-detail">
+        <div class="breadcrumb">
+          <button class="breadcrumb-item" onclick="showView('students')">All Students</button>
+          <span class="breadcrumb-sep">›</span>
+          <span class="breadcrumb-item active" id="studentDetailName">Student Name</span>
+        </div>
+        <div class="student-detail-header" id="studentDetailHeader"></div>
+        <div class="card" style="margin-bottom: 24px;">
+          <div class="card-header"><h3 class="card-title">Career Readiness Score History</h3></div>
+          <div class="card-body"><div class="chart-container" style="height: 200px;"><canvas id="studentScoreChart"></canvas></div></div>
+        </div>
+        <div class="card" style="margin-bottom: 24px;">
+          <div class="card-header"><h3 class="card-title">Activity Progress</h3><span style="font-size: 13px; color: #64748b;">Platform engagement summary</span></div>
+          <div class="card-body"><div class="activity-grid" id="studentActivityGrid"></div></div>
+        </div>
+        <div class="chart-grid">
+          <div class="card">
+            <div class="card-header"><h3 class="card-title">Required Simulations</h3></div>
+            <div class="card-body" id="studentSimulationsContainer"></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3 class="card-title">Tool Usage</h3></div>
+            <div class="card-body"><div class="chart-container"><canvas id="studentToolChart"></canvas></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="view-tools">
+        <div class="page-header"><div class="page-header-left"><h1>Tools & Resources</h1><p>Platform engagement metrics</p></div></div>
+        <div class="stats-grid" id="toolsStats"></div>
+        <div class="chart-grid">
+          <div class="card"><div class="card-header"><h3 class="card-title">Tool Usage Breakdown</h3></div><div class="card-body"><div class="chart-container"><canvas id="toolBreakdownChart"></canvas></div></div></div>
+          <div class="card"><div class="card-header"><h3 class="card-title">Weekly Trend</h3></div><div class="card-body"><div class="chart-container"><canvas id="weeklyTrendChart"></canvas></div></div></div>
+        </div>
+        <div class="section-divider">
+          <h3 class="section-title"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>Educational Resources</h3>
+          <div class="resource-grid" id="resourcesGrid"></div>
+        </div>
+      </div>
+
+      <div class="view" id="view-learning">
+        <div class="page-header"><div class="page-header-left"><h1>Simulations</h1><p>Track simulation progress by major</p></div></div>
+        <div class="stats-grid" id="simStats"></div>
+        <div id="majorCardsContainer"></div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const majorSimulations = {
+      'Finance': ['vc', 'ma', 'pe'],
+      'Business Administration': ['consulting', 'corpstrat', 'supplychain'],
+      'Computer Science': ['swe', 'cyber'],
+      'Marketing': ['marketing'],
+      'Economics': ['consulting', 'corpstrat', 'pe']
+    };
+
+    const mockData = {
+      students: [
+        { id: 1, name: 'Sarah Chen', email: 'schen@university.edu', major: 'Computer Science', classYear: 2025, readinessScores: [{score: 45, date: '2024-09-15'}, {score: 62, date: '2024-11-01'}, {score: 78, date: '2025-01-10'}], activities: { interviews: 4, companies: 12, resumeReviews: 3, linkedinOptimizations: 2 }, simulations: { swe: { status: 'completed', score: 82 }, cyber: { status: 'completed', score: 76 } } },
+        { id: 2, name: 'Marcus Johnson', email: 'mjohnson@university.edu', major: 'Business Administration', classYear: 2025, readinessScores: [{score: 52, date: '2024-09-20'}, {score: 71, date: '2024-12-05'}, {score: 86, date: '2025-01-15'}], activities: { interviews: 5, companies: 15, resumeReviews: 4, linkedinOptimizations: 3 }, simulations: { consulting: { status: 'completed', score: 88 }, corpstrat: { status: 'completed', score: 84 }, supplychain: { status: 'completed', score: 79 } } },
+        { id: 3, name: 'Emily Rodriguez', email: 'erodriguez@university.edu', major: 'Finance', classYear: 2026, readinessScores: [{score: 38, date: '2024-10-01'}, {score: 55, date: '2024-12-15'}], activities: { interviews: 2, companies: 6, resumeReviews: 2, linkedinOptimizations: 1 }, simulations: { vc: { status: 'completed', score: 71 }, ma: { status: 'in-progress', score: null }, pe: { status: 'not-started', score: null } } },
+        { id: 4, name: 'James Williams', email: 'jwilliams@university.edu', major: 'Marketing', classYear: 2025, readinessScores: [{score: 60, date: '2024-09-10'}, {score: 75, date: '2024-11-20'}, {score: 82, date: '2025-01-08'}], activities: { interviews: 4, companies: 10, resumeReviews: 3, linkedinOptimizations: 2 }, simulations: { marketing: { status: 'completed', score: 85 } } },
+        { id: 5, name: 'Olivia Martinez', email: 'omartinez@university.edu', major: 'Economics', classYear: 2026, readinessScores: [{score: 42, date: '2024-10-05'}, {score: 58, date: '2025-01-02'}], activities: { interviews: 2, companies: 5, resumeReviews: 1, linkedinOptimizations: 1 }, simulations: { consulting: { status: 'in-progress', score: null }, corpstrat: { status: 'not-started', score: null }, pe: { status: 'not-started', score: null } } },
+        { id: 6, name: 'Daniel Kim', email: 'dkim@university.edu', major: 'Computer Science', classYear: 2027, readinessScores: [{score: 35, date: '2025-01-05'}], activities: { interviews: 1, companies: 3, resumeReviews: 1, linkedinOptimizations: 0 }, simulations: { swe: { status: 'in-progress', score: null }, cyber: { status: 'not-started', score: null } } },
+        { id: 7, name: 'Sophia Brown', email: 'sbrown@university.edu', major: 'Finance', classYear: 2025, readinessScores: [{score: 55, date: '2024-09-18'}, {score: 72, date: '2024-11-25'}, {score: 88, date: '2025-01-12'}], activities: { interviews: 5, companies: 14, resumeReviews: 4, linkedinOptimizations: 3 }, simulations: { vc: { status: 'completed', score: 91 }, ma: { status: 'completed', score: 86 }, pe: { status: 'completed', score: 83 } } },
+        { id: 8, name: 'Liam Davis', email: 'ldavis@university.edu', major: 'Business Administration', classYear: 2026, readinessScores: [{score: 48, date: '2024-09-25'}, {score: 65, date: '2024-12-10'}], activities: { interviews: 3, companies: 7, resumeReviews: 2, linkedinOptimizations: 1 }, simulations: { consulting: { status: 'completed', score: 74 }, corpstrat: { status: 'in-progress', score: null }, supplychain: { status: 'not-started', score: null } } },
+        { id: 9, name: 'Ava Wilson', email: 'awilson@university.edu', major: 'Marketing', classYear: 2026, readinessScores: [{score: 40, date: '2024-10-08'}, {score: 52, date: '2025-01-03'}], activities: { interviews: 1, companies: 4, resumeReviews: 1, linkedinOptimizations: 0 }, simulations: { marketing: { status: 'in-progress', score: null } } },
+        { id: 10, name: 'Noah Anderson', email: 'nanderson@university.edu', major: 'Economics', classYear: 2025, readinessScores: [{score: 58, date: '2024-09-12'}, {score: 74, date: '2024-11-30'}, {score: 85, date: '2025-01-14'}], activities: { interviews: 4, companies: 11, resumeReviews: 3, linkedinOptimizations: 2 }, simulations: { consulting: { status: 'completed', score: 82 }, corpstrat: { status: 'completed', score: 78 }, pe: { status: 'in-progress', score: null } } },
+        { id: 11, name: 'Isabella Thomas', email: 'ithomas@university.edu', major: 'Finance', classYear: 2027, readinessScores: [{score: 32, date: '2025-01-06'}], activities: { interviews: 0, companies: 2, resumeReviews: 0, linkedinOptimizations: 0 }, simulations: { vc: { status: 'not-started', score: null }, ma: { status: 'not-started', score: null }, pe: { status: 'not-started', score: null } } },
+        { id: 12, name: 'Mason Taylor', email: 'mtaylor@university.edu', major: 'Computer Science', classYear: 2025, readinessScores: [{score: 50, date: '2024-09-22'}, {score: 68, date: '2024-11-15'}, {score: 79, date: '2025-01-09'}], activities: { interviews: 3, companies: 9, resumeReviews: 2, linkedinOptimizations: 2 }, simulations: { swe: { status: 'completed', score: 77 }, cyber: { status: 'completed', score: 81 } } },
+        { id: 13, name: 'Mia Jackson', email: 'mjackson@university.edu', major: 'Business Administration', classYear: 2025, readinessScores: [{score: 62, date: '2024-09-08'}, {score: 78, date: '2024-11-22'}, {score: 89, date: '2025-01-16'}], activities: { interviews: 6, companies: 16, resumeReviews: 4, linkedinOptimizations: 3 }, simulations: { consulting: { status: 'completed', score: 92 }, corpstrat: { status: 'completed', score: 87 }, supplychain: { status: 'completed', score: 84 } } },
+        { id: 14, name: 'Ethan White', email: 'ewhite@university.edu', major: 'Economics', classYear: 2026, readinessScores: [{score: 45, date: '2024-10-02'}, {score: 61, date: '2024-12-18'}], activities: { interviews: 2, companies: 5, resumeReviews: 1, linkedinOptimizations: 1 }, simulations: { consulting: { status: 'completed', score: 69 }, corpstrat: { status: 'in-progress', score: null }, pe: { status: 'not-started', score: null } } },
+        { id: 15, name: 'Charlotte Harris', email: 'charris@university.edu', major: 'Marketing', classYear: 2027, readinessScores: [{score: 38, date: '2025-01-04'}], activities: { interviews: 1, companies: 2, resumeReviews: 1, linkedinOptimizations: 0 }, simulations: { marketing: { status: 'not-started', score: null } } },
+        { id: 16, name: 'Alexander Martin', email: 'amartin@university.edu', major: 'Finance', classYear: 2025, readinessScores: [{score: 52, date: '2024-09-16'}, {score: 70, date: '2024-11-28'}, {score: 83, date: '2025-01-11'}], activities: { interviews: 4, companies: 12, resumeReviews: 3, linkedinOptimizations: 2 }, simulations: { vc: { status: 'completed', score: 79 }, ma: { status: 'completed', score: 82 }, pe: { status: 'in-progress', score: null } } },
+        { id: 17, name: 'Amelia Garcia', email: 'agarcia@university.edu', major: 'Computer Science', classYear: 2026, readinessScores: [{score: 44, date: '2024-10-10'}, {score: 62, date: '2025-01-05'}], activities: { interviews: 2, companies: 6, resumeReviews: 2, linkedinOptimizations: 1 }, simulations: { swe: { status: 'in-progress', score: null }, cyber: { status: 'not-started', score: null } } },
+        { id: 18, name: 'Benjamin Lee', email: 'blee@university.edu', major: 'Business Administration', classYear: 2026, readinessScores: [{score: 51, date: '2024-09-28'}, {score: 67, date: '2024-12-12'}], activities: { interviews: 3, companies: 8, resumeReviews: 2, linkedinOptimizations: 1 }, simulations: { consulting: { status: 'completed', score: 76 }, corpstrat: { status: 'in-progress', score: null }, supplychain: { status: 'not-started', score: null } } },
+        { id: 19, name: 'Harper Robinson', email: 'hrobinson@university.edu', major: 'Economics', classYear: 2025, readinessScores: [{score: 56, date: '2024-09-14'}, {score: 73, date: '2024-11-26'}, {score: 84, date: '2025-01-13'}], activities: { interviews: 4, companies: 10, resumeReviews: 3, linkedinOptimizations: 2 }, simulations: { consulting: { status: 'completed', score: 81 }, corpstrat: { status: 'completed', score: 79 }, pe: { status: 'completed', score: 75 } } },
+        { id: 20, name: 'William Clark', email: 'wclark@university.edu', major: 'Finance', classYear: 2026, readinessScores: [{score: 47, date: '2024-10-06'}, {score: 63, date: '2024-12-20'}], activities: { interviews: 2, companies: 6, resumeReviews: 2, linkedinOptimizations: 1 }, simulations: { vc: { status: 'completed', score: 72 }, ma: { status: 'in-progress', score: null }, pe: { status: 'not-started', score: null } } },
+        { id: 21, name: 'Evelyn Lewis', email: 'elewis@university.edu', major: 'Marketing', classYear: 2025, readinessScores: [{score: 58, date: '2024-09-20'}, {score: 74, date: '2024-11-18'}, {score: 81, date: '2025-01-07'}], activities: { interviews: 4, companies: 9, resumeReviews: 3, linkedinOptimizations: 2 }, simulations: { marketing: { status: 'completed', score: 83 } } },
+        { id: 22, name: 'Henry Walker', email: 'hwalker@university.edu', major: 'Computer Science', classYear: 2027, readinessScores: [{score: 36, date: '2025-01-02'}], activities: { interviews: 0, companies: 2, resumeReviews: 1, linkedinOptimizations: 0 }, simulations: { swe: { status: 'not-started', score: null }, cyber: { status: 'not-started', score: null } } },
+        { id: 23, name: 'Abigail Hall', email: 'ahall@university.edu', major: 'Business Administration', classYear: 2025, readinessScores: [{score: 54, date: '2024-09-11'}, {score: 72, date: '2024-11-24'}, {score: 85, date: '2025-01-15'}], activities: { interviews: 5, companies: 13, resumeReviews: 3, linkedinOptimizations: 2 }, simulations: { consulting: { status: 'completed', score: 86 }, corpstrat: { status: 'completed', score: 81 }, supplychain: { status: 'in-progress', score: null } } },
+        { id: 24, name: 'Jack Young', email: 'jyoung@university.edu', major: 'Economics', classYear: 2026, readinessScores: [{score: 43, date: '2024-10-04'}, {score: 59, date: '2025-01-01'}], activities: { interviews: 2, companies: 4, resumeReviews: 1, linkedinOptimizations: 1 }, simulations: { consulting: { status: 'in-progress', score: null }, corpstrat: { status: 'not-started', score: null }, pe: { status: 'not-started', score: null } } },
+        { id: 25, name: 'Ella King', email: 'eking@university.edu', major: 'Finance', classYear: 2025, readinessScores: [{score: 57, date: '2024-09-19'}, {score: 75, date: '2024-11-29'}, {score: 87, date: '2025-01-10'}], activities: { interviews: 5, companies: 14, resumeReviews: 4, linkedinOptimizations: 3 }, simulations: { vc: { status: 'completed', score: 89 }, ma: { status: 'completed', score: 84 }, pe: { status: 'completed', score: 80 } } },
+        { id: 26, name: 'Lucas Wright', email: 'lwright@university.edu', major: 'Marketing', classYear: 2026, readinessScores: [{score: 46, date: '2024-10-08'}, {score: 64, date: '2024-12-16'}], activities: { interviews: 2, companies: 5, resumeReviews: 2, linkedinOptimizations: 1 }, simulations: { marketing: { status: 'in-progress', score: null } } },
+        { id: 27, name: 'Grace Scott', email: 'gscott@university.edu', major: 'Computer Science', classYear: 2025, readinessScores: [{score: 53, date: '2024-09-24'}, {score: 71, date: '2024-11-16'}, {score: 82, date: '2025-01-08'}], activities: { interviews: 4, companies: 11, resumeReviews: 3, linkedinOptimizations: 2 }, simulations: { swe: { status: 'completed', score: 85 }, cyber: { status: 'completed', score: 79 } } },
+        { id: 28, name: 'Owen Green', email: 'ogreen@university.edu', major: 'Business Administration', classYear: 2027, readinessScores: [{score: 34, date: '2025-01-03'}], activities: { interviews: 0, companies: 1, resumeReviews: 0, linkedinOptimizations: 0 }, simulations: { consulting: { status: 'not-started', score: null }, corpstrat: { status: 'not-started', score: null }, supplychain: { status: 'not-started', score: null } } },
+        { id: 29, name: 'Chloe Adams', email: 'cadams@university.edu', major: 'Economics', classYear: 2025, readinessScores: [{score: 59, date: '2024-09-13'}, {score: 76, date: '2024-11-27'}, {score: 86, date: '2025-01-12'}], activities: { interviews: 5, companies: 12, resumeReviews: 3, linkedinOptimizations: 2 }, simulations: { consulting: { status: 'completed', score: 84 }, corpstrat: { status: 'completed', score: 80 }, pe: { status: 'completed', score: 77 } } },
+        { id: 30, name: 'Aiden Hill', email: 'ahill@university.edu', major: 'Finance', classYear: 2026, readinessScores: [{score: 49, date: '2024-10-09'}, {score: 66, date: '2024-12-22'}], activities: { interviews: 3, companies: 7, resumeReviews: 2, linkedinOptimizations: 1 }, simulations: { vc: { status: 'completed', score: 74 }, ma: { status: 'in-progress', score: null }, pe: { status: 'not-started', score: null } } },
+        { id: 31, name: 'Zoey Turner', email: 'zturner@university.edu', major: 'Computer Science', classYear: 2026, readinessScores: [{score: 41, date: '2024-10-11'}, {score: 57, date: '2025-01-04'}], activities: { interviews: 1, companies: 4, resumeReviews: 1, linkedinOptimizations: 0 }, simulations: { swe: { status: 'in-progress', score: null }, cyber: { status: 'not-started', score: null } } },
+        { id: 32, name: 'Aria Adams', email: 'aadams@university.edu', major: 'Business Administration', classYear: 2027, readinessScores: [{score: 33, date: '2025-01-06'}], activities: { interviews: 1, companies: 2, resumeReviews: 1, linkedinOptimizations: 0 }, simulations: { consulting: { status: 'in-progress', score: null }, corpstrat: { status: 'not-started', score: null }, supplychain: { status: 'not-started', score: null } } },
+        { id: 33, name: 'Henry Baker', email: 'hbaker@university.edu', major: 'Economics', classYear: 2026, readinessScores: [{score: 49, date: '2024-10-12'}, {score: 74, date: '2025-01-17'}], activities: { interviews: 3, companies: 7, resumeReviews: 2, linkedinOptimizations: 1 }, simulations: { consulting: { status: 'completed', score: 79 }, corpstrat: { status: 'completed', score: 74 }, pe: { status: 'in-progress', score: null } } },
+        { id: 34, name: 'Scarlett Nelson', email: 'snelson@university.edu', major: 'Computer Science', classYear: 2025, readinessScores: [{score: 52, date: '2024-09-25'}, {score: 70, date: '2024-12-08'}, {score: 80, date: '2025-01-18'}], activities: { interviews: 4, companies: 9, resumeReviews: 2, linkedinOptimizations: 2 }, simulations: { swe: { status: 'completed', score: 84 }, cyber: { status: 'completed', score: 78 } } },
+        { id: 35, name: 'Sebastian Carter', email: 'scarter@university.edu', major: 'Finance', classYear: 2027, readinessScores: [{score: 30, date: '2025-01-04'}], activities: { interviews: 0, companies: 1, resumeReviews: 0, linkedinOptimizations: 0 }, simulations: { vc: { status: 'not-started', score: null }, ma: { status: 'not-started', score: null }, pe: { status: 'not-started', score: null } } }
+      ],
+      simulations: { vc: { id: 'vc', name: 'Venture Capital', track: 'Finance' }, ma: { id: 'ma', name: 'M&A', track: 'Finance' }, pe: { id: 'pe', name: 'Private Equity', track: 'Finance' }, consulting: { id: 'consulting', name: 'Consulting', track: 'Strategy' }, corpstrat: { id: 'corpstrat', name: 'Corporate Strategy', track: 'Strategy' }, supplychain: { id: 'supplychain', name: 'Supply Chain', track: 'Operations' }, cyber: { id: 'cyber', name: 'Cybersecurity', track: 'Operations' }, swe: { id: 'swe', name: 'Software Engineering', track: 'Tech' }, marketing: { id: 'marketing', name: 'Marketing', track: 'Marketing' } },
+      resources: [ { id: 'networking', name: 'Networking Fundamentals', category: 'Career Skills', views: 245 }, { id: 'linkedin', name: 'LinkedIn Optimization', category: 'Career Skills', views: 312 }, { id: 'coldoutreach', name: 'Cold Outreach Templates', category: 'Career Skills', views: 198 }, { id: 'interviews', name: 'Interview Preparation', category: 'Career Skills', views: 276 }, { id: 'salary', name: 'Salary Negotiation', category: 'Career Skills', views: 156 }, { id: 'techguide', name: 'Tech Industry Overview', category: 'Industry Guides', views: 189 }, { id: 'financeguide', name: 'Finance Industry Overview', category: 'Industry Guides', views: 167 }, { id: 'consultingguide', name: 'Consulting Industry Overview', category: 'Industry Guides', views: 143 } ],
+      weeklyTrends: [{ week: 'W1', usage: 145 }, { week: 'W2', usage: 168 }, { week: 'W3', usage: 152 }, { week: 'W4', usage: 189 }, { week: 'W5', usage: 201 }, { week: 'W6', usage: 178 }, { week: 'W7', usage: 215 }, { week: 'W8', usage: 234 }]
+    };
+
+    const state = { currentView: 'dashboard', filters: { major: '', classYear: '' }, sort: { field: 'readiness', direction: 'desc' }, pagination: { page: 1, perPage: 10 }, selectedStudent: null };
+    const charts = {};
+
+    const getInitials = name => name.split(' ').map(n => n[0]).join('');
+    const getLatestScore = s => s.readinessScores[s.readinessScores.length - 1]?.score || 0;
+    const getScoreClass = score => score >= 80 ? 'excellent' : score >= 65 ? 'good' : score >= 50 ? 'fair' : 'needs-work';
+    
+    function getSimProgress(student) {
+      const required = majorSimulations[student.major] || [];
+      if (!required.length) return { completed: 0, total: 0, pct: 0 };
+      let completed = 0;
+      required.forEach(simId => { if (student.simulations[simId]?.status === 'completed') completed++; });
+      return { completed, total: required.length, pct: completed / required.length };
+    }
+    
+    function destroyAllCharts() { Object.values(charts).forEach(c => c?.destroy?.()); Object.keys(charts).forEach(k => delete charts[k]); }
+
+    function showView(viewName) {
+      state.currentView = viewName;
+      destroyAllCharts();
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById('view-' + viewName).classList.add('active');
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.querySelector('.nav-item[data-view="' + viewName + '"]')?.classList.add('active');
+      if (viewName === 'dashboard') renderDashboard();
+      else if (viewName === 'students') renderStudents();
+      else if (viewName === 'tools') renderTools();
+      else if (viewName === 'learning') renderLearning();
+      closeMobileMenu();
+    }
+    
+    function showStudentDetail(studentId) {
+      state.selectedStudent = studentId;
+      state.currentView = 'student-detail';
+      destroyAllCharts();
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById('view-student-detail').classList.add('active');
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      renderStudentDetail(studentId);
+    }
+
+    function renderDashboard() {
+      const students = mockData.students;
+      const avgScore = Math.round(students.reduce((sum, s) => sum + getLatestScore(s), 0) / students.length);
+      let totalInterviews = 0, totalCompanies = 0, totalResume = 0, totalLinkedin = 0, totalSimsCompleted = 0, activeStudents = 0;
+      students.forEach(s => {
+        totalInterviews += s.activities.interviews;
+        totalCompanies += s.activities.companies;
+        totalResume += s.activities.resumeReviews;
+        totalLinkedin += s.activities.linkedinOptimizations;
+        totalSimsCompleted += getSimProgress(s).completed;
+        const total = s.activities.interviews + s.activities.companies + s.activities.resumeReviews + s.activities.linkedinOptimizations;
+        if (total >= 1) activeStudents++;
+      });
+      
+      document.getElementById('dashboardStats').innerHTML = 
+        '<div class="stat-card clickable" onclick="showView(\'students\')"><div class="stat-header"><div class="stat-icon green"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div></div><div class="stat-value">' + students.length + '</div><div class="stat-label">Total Students</div></div>' +
+        '<div class="stat-card"><div class="stat-header"><div class="stat-icon blue"><svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></div></div><div class="stat-value">' + avgScore + '</div><div class="stat-label">Avg Readiness Score</div></div>' +
+        '<div class="stat-card"><div class="stat-header"><div class="stat-icon purple"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div></div><div class="stat-value">' + activeStudents + '</div><div class="stat-label">Active Students</div></div>' +
+        '<div class="stat-card"><div class="stat-header"><div class="stat-icon amber"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div></div><div class="stat-value">' + totalSimsCompleted + '</div><div class="stat-label">Simulations Completed</div></div>';
+      
+      const scoreBuckets = { '0-49': 0, '50-64': 0, '65-79': 0, '80-100': 0 };
+      students.forEach(s => { const score = getLatestScore(s); if (score < 50) scoreBuckets['0-49']++; else if (score < 65) scoreBuckets['50-64']++; else if (score < 80) scoreBuckets['65-79']++; else scoreBuckets['80-100']++; });
+      
+      const distCtx = document.getElementById('readinessDistChart');
+      if (distCtx) { charts.readinessDist = new Chart(distCtx, { type: 'bar', data: { labels: ['0-49', '50-64', '65-79', '80-100'], datasets: [{ label: 'Students', data: Object.values(scoreBuckets), backgroundColor: ['#fee2e2', '#fef3c7', '#dbeafe', '#dcfce7'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } } }); }
+      
+      document.getElementById('engagementOverview').innerHTML = 
+        '<div class="engagement-item interviews"><div class="engagement-item-value">' + totalInterviews + '</div><div class="engagement-item-label">Mock Interviews</div></div>' +
+        '<div class="engagement-item companies"><div class="engagement-item-value">' + totalCompanies + '</div><div class="engagement-item-label">Companies</div></div>' +
+        '<div class="engagement-item resumes"><div class="engagement-item-value">' + totalResume + '</div><div class="engagement-item-label">Resume Reviews</div></div>' +
+        '<div class="engagement-item linkedin"><div class="engagement-item-value">' + totalLinkedin + '</div><div class="engagement-item-label">LinkedIn Optimizations</div></div>';
+      
+      document.getElementById('activityOverview').innerHTML = 
+        '<div class="activity-card"><div class="activity-card-icon blue"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="activity-card-value">' + totalInterviews + '</div><div class="activity-card-label">Mock Interviews</div></div>' +
+        '<div class="activity-card"><div class="activity-card-icon green"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div><div class="activity-card-value">' + totalCompanies + '</div><div class="activity-card-label">Companies Researched</div></div>' +
+        '<div class="activity-card"><div class="activity-card-icon purple"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="activity-card-value">' + totalResume + '</div><div class="activity-card-label">Resume Reviews</div></div>' +
+        '<div class="activity-card"><div class="activity-card-icon amber"><svg viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg></div><div class="activity-card-value">' + totalLinkedin + '</div><div class="activity-card-label">LinkedIn Optimizations</div></div>' +
+        '<div class="activity-card"><div class="activity-card-icon green"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div><div class="activity-card-value">' + totalSimsCompleted + '</div><div class="activity-card-label">Simulations Done</div></div>';
+    }
+
+    function applyFilters() { state.filters.major = document.getElementById('filterMajor').value; state.filters.classYear = document.getElementById('filterClass').value; state.pagination.page = 1; renderStudents(); }
+    function sortTable(field) { if (state.sort.field === field) state.sort.direction = state.sort.direction === 'asc' ? 'desc' : 'asc'; else { state.sort.field = field; state.sort.direction = field === 'readiness' ? 'desc' : 'asc'; } renderStudents(); }
+    
+    function getFilteredStudents() {
+      let students = [...mockData.students];
+      if (state.filters.major) students = students.filter(s => s.major === state.filters.major);
+      if (state.filters.classYear) students = students.filter(s => s.classYear === parseInt(state.filters.classYear));
+      students.sort((a, b) => { let aVal, bVal; if (state.sort.field === 'name') { aVal = a.name; bVal = b.name; } else if (state.sort.field === 'major') { aVal = a.major; bVal = b.major; } else if (state.sort.field === 'readiness') { aVal = getLatestScore(a); bVal = getLatestScore(b); } if (aVal < bVal) return state.sort.direction === 'asc' ? -1 : 1; if (aVal > bVal) return state.sort.direction === 'asc' ? 1 : -1; return 0; });
+      return students;
+    }
+    
+    function renderStudents() {
+      const students = mockData.students;
+      const majors = [...new Set(students.map(s => s.major))].sort();
+      const years = [...new Set(students.map(s => s.classYear))].sort();
+      document.getElementById('filterMajor').innerHTML = '<option value="">All Majors</option>' + majors.map(m => '<option value="' + m + '"' + (state.filters.major === m ? ' selected' : '') + '>' + m + '</option>').join('');
+      document.getElementById('filterClass').innerHTML = '<option value="">All Classes</option>' + years.map(y => '<option value="' + y + '"' + (state.filters.classYear === y.toString() ? ' selected' : '') + '>' + y + '</option>').join('');
+      const filtered = getFilteredStudents();
+      const start = (state.pagination.page - 1) * state.pagination.perPage;
+      const paginated = filtered.slice(start, start + state.pagination.perPage);
+      document.getElementById('studentsTableBody').innerHTML = paginated.map(s => { const score = getLatestScore(s); const a = s.activities; const sim = getSimProgress(s); return '<tr class="clickable" onclick="showStudentDetail(' + s.id + ')"><td><div class="student-cell"><div class="student-avatar">' + getInitials(s.name) + '</div><div class="student-info"><span class="student-name">' + s.name + '</span><span class="student-email">' + s.email + '</span></div></div></td><td>' + s.major + '</td><td><span class="badge ' + getScoreClass(score) + '">' + score + '</span></td><td style="font-size:12px;color:#64748b;">' + a.interviews + ' int · ' + a.companies + ' co · ' + a.resumeReviews + ' res</td><td><span class="badge ' + (sim.pct >= 1 ? 'completed' : sim.completed > 0 ? 'in-progress' : 'not-started') + '">' + sim.completed + '/' + sim.total + '</span></td><td><button class="view-btn" onclick="event.stopPropagation(); showStudentDetail(' + s.id + ')">View</button></td></tr>'; }).join('');
+      document.getElementById('paginationInfo').textContent = 'Showing ' + (filtered.length ? start + 1 : 0) + '-' + Math.min(start + state.pagination.perPage, filtered.length) + ' of ' + filtered.length;
+      document.getElementById('studentCountBadge').textContent = filtered.length;
+      const totalPages = Math.ceil(filtered.length / state.pagination.perPage) || 1;
+      let paginationHtml = '<button class="pagination-btn" onclick="goToPage(' + (state.pagination.page - 1) + ')"' + (state.pagination.page === 1 ? ' disabled' : '') + '>‹</button>';
+      for (let i = 1; i <= Math.min(totalPages, 5); i++) paginationHtml += '<button class="pagination-btn' + (i === state.pagination.page ? ' active' : '') + '" onclick="goToPage(' + i + ')">' + i + '</button>';
+      paginationHtml += '<button class="pagination-btn" onclick="goToPage(' + (state.pagination.page + 1) + ')"' + (state.pagination.page === totalPages ? ' disabled' : '') + '>›</button>';
+      document.getElementById('paginationControls').innerHTML = paginationHtml;
+    }
+    
+    function goToPage(page) { state.pagination.page = page; renderStudents(); }
+
+    function renderStudentDetail(studentId) {
+      const student = mockData.students.find(s => s.id === studentId);
+      if (!student) return;
+      document.getElementById('studentDetailName').textContent = student.name;
+      const score = getLatestScore(student);
+      document.getElementById('studentDetailHeader').innerHTML = '<div class="student-detail-avatar">' + getInitials(student.name) + '</div><div class="student-detail-info"><div class="student-detail-name">' + student.name + '</div><div class="student-detail-meta"><span><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>' + student.major + '</span><span><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>Class of ' + student.classYear + '</span><span><svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>Current Score: <strong>' + score + '</strong></span></div></div>';
+      const scoreCtx = document.getElementById('studentScoreChart');
+      if (scoreCtx) { charts.studentScore = new Chart(scoreCtx, { type: 'line', data: { labels: student.readinessScores.map(r => new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })), datasets: [{ label: 'Readiness Score', data: student.readinessScores.map(r => r.score), borderColor: '#008208', backgroundColor: 'rgba(0,130,8,0.1)', fill: true, tension: 0.3, pointBackgroundColor: '#008208', pointRadius: 6 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: false, min: 0, max: 100 } } } }); }
+      const a = student.activities;
+      const sim = getSimProgress(student);
+      document.getElementById('studentActivityGrid').innerHTML = '<div class="activity-card ' + (a.interviews > 0 ? 'partial' : '') + '"><div class="activity-card-icon blue"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="activity-card-value">' + a.interviews + '</div><div class="activity-card-label">Mock Interviews</div></div><div class="activity-card ' + (a.companies > 0 ? 'partial' : '') + '"><div class="activity-card-icon green"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div><div class="activity-card-value">' + a.companies + '</div><div class="activity-card-label">Companies Researched</div></div><div class="activity-card ' + (a.resumeReviews > 0 ? 'partial' : '') + '"><div class="activity-card-icon purple"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="activity-card-value">' + a.resumeReviews + '</div><div class="activity-card-label">Resume Reviews</div></div><div class="activity-card ' + (a.linkedinOptimizations > 0 ? 'partial' : '') + '"><div class="activity-card-icon amber"><svg viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg></div><div class="activity-card-value">' + a.linkedinOptimizations + '</div><div class="activity-card-label">LinkedIn Optimizations</div></div><div class="activity-card ' + (sim.pct >= 1 ? 'complete' : sim.completed > 0 ? 'partial' : '') + '"><div class="activity-card-icon green"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div><div class="activity-card-value">' + sim.completed + '/' + sim.total + '</div><div class="activity-card-label">Major Simulations</div></div>';
+      const requiredSims = majorSimulations[student.major] || [];
+      let simsHtml = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+      requiredSims.forEach(simId => { const sim = mockData.simulations[simId]; const studentSim = student.simulations[simId] || { status: 'not-started', score: null }; simsHtml += '<div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #f8fafc; border-radius: 8px;"><span style="font-weight: 500;">' + sim.name + '</span><div style="display: flex; align-items: center; gap: 12px;">' + (studentSim.score ? '<span style="font-size: 13px; color: #64748b;">Score: <strong>' + studentSim.score + '</strong></span>' : '') + '<span class="badge ' + studentSim.status + '">' + (studentSim.status === 'completed' ? 'Completed' : studentSim.status === 'in-progress' ? 'In Progress' : 'Not Started') + '</span></div></div>'; });
+      simsHtml += '</div>';
+      document.getElementById('studentSimulationsContainer').innerHTML = simsHtml || '<p style="color: #94a3b8;">No simulations mapped for this major</p>';
+      const toolCtx = document.getElementById('studentToolChart');
+      if (toolCtx) { charts.studentTool = new Chart(toolCtx, { type: 'radar', data: { labels: ['Interviews', 'Companies', 'Resume', 'LinkedIn'], datasets: [{ label: 'Activity', data: [a.interviews, a.companies, a.resumeReviews, a.linkedinOptimizations], backgroundColor: 'rgba(0,130,8,0.2)', borderColor: '#008208', pointBackgroundColor: '#008208' }] }, options: { responsive: true, maintainAspectRatio: false, scales: { r: { beginAtZero: true } } } }); }
+    }
+
+    function renderTools() {
+      const students = mockData.students;
+      let totalInterviews = 0, totalCompanies = 0, totalResume = 0, totalLinkedin = 0;
+      students.forEach(s => { totalInterviews += s.activities.interviews; totalCompanies += s.activities.companies; totalResume += s.activities.resumeReviews; totalLinkedin += s.activities.linkedinOptimizations; });
+      const totalResourceViews = mockData.resources.reduce((sum, r) => sum + r.views, 0);
+      document.getElementById('toolsStats').innerHTML = '<div class="stat-card"><div class="stat-header"><div class="stat-icon blue"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div></div><div class="stat-value">' + totalInterviews + '</div><div class="stat-label">Mock Interviews</div></div><div class="stat-card"><div class="stat-header"><div class="stat-icon green"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div></div><div class="stat-value">' + totalCompanies + '</div><div class="stat-label">Companies Researched</div></div><div class="stat-card"><div class="stat-header"><div class="stat-icon purple"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div></div><div class="stat-value">' + totalResume + '</div><div class="stat-label">Resume Reviews</div></div><div class="stat-card"><div class="stat-header"><div class="stat-icon amber"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div></div><div class="stat-value">' + totalResourceViews + '</div><div class="stat-label">Resource Views</div></div>';
+      const breakdownCtx = document.getElementById('toolBreakdownChart');
+      if (breakdownCtx) { charts.toolBreakdown = new Chart(breakdownCtx, { type: 'doughnut', data: { labels: ['Mock Interviews', 'Company Research', 'Resume Reviews', 'LinkedIn Optimizations'], datasets: [{ data: [totalInterviews, totalCompanies, totalResume, totalLinkedin], backgroundColor: ['#2563eb', '#16a34a', '#7c3aed', '#d97706'] }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right' } } } }); }
+      const trendCtx = document.getElementById('weeklyTrendChart');
+      if (trendCtx) { charts.weeklyTrend = new Chart(trendCtx, { type: 'line', data: { labels: mockData.weeklyTrends.map(t => t.week), datasets: [{ label: 'Activity', data: mockData.weeklyTrends.map(t => t.usage), borderColor: '#008208', backgroundColor: 'rgba(0,130,8,0.1)', fill: true, tension: 0.4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } } }); }
+      document.getElementById('resourcesGrid').innerHTML = mockData.resources.map(r => '<div class="resource-card"><div class="resource-card-title">' + r.name + '</div><div class="resource-card-stat">' + r.views + ' views</div></div>').join('');
+    }
+
+    let expandedSim = null;
+    const svgDefs = '<svg width="0" height="0" style="position:absolute;"><defs><linearGradient id="greenGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#16a34a"/><stop offset="100%" stop-color="#22c55e"/></linearGradient><linearGradient id="amberGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#fbbf24"/></linearGradient><linearGradient id="redGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#f87171"/></linearGradient></defs></svg>';
+    
+    function renderLearning() {
+      const students = mockData.students;
+      let totalCompleted = 0, totalInProgress = 0, totalScores = [];
+      students.forEach(s => { Object.values(s.simulations).forEach(sim => { if (sim.status === 'completed') { totalCompleted++; if (sim.score) totalScores.push(sim.score); } else if (sim.status === 'in-progress') totalInProgress++; }); });
+      const avgScore = totalScores.length ? Math.round(totalScores.reduce((a, b) => a + b, 0) / totalScores.length) : 0;
+      document.getElementById('simStats').innerHTML = '<div class="stat-card"><div class="stat-header"><div class="stat-icon green"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div></div><div class="stat-value">' + totalCompleted + '</div><div class="stat-label">Simulations Completed</div></div><div class="stat-card"><div class="stat-header"><div class="stat-icon amber"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div></div><div class="stat-value">' + totalInProgress + '</div><div class="stat-label">In Progress</div></div><div class="stat-card"><div class="stat-header"><div class="stat-icon blue"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div></div><div class="stat-value">' + avgScore + '</div><div class="stat-label">Average Score</div></div><div class="stat-card"><div class="stat-header"><div class="stat-icon purple"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div></div><div class="stat-value">' + Object.keys(mockData.simulations).length + '</div><div class="stat-label">Total Simulations</div></div>';
+      let html = svgDefs;
+      const majors = Object.keys(majorSimulations);
+      majors.forEach(major => {
+        const majorStudents = students.filter(s => s.major === major);
+        if (!majorStudents.length) return;
+        const simIds = majorSimulations[major];
+        let majorCompleted = 0, majorTotal = 0;
+        majorStudents.forEach(s => { simIds.forEach(simId => { majorTotal++; if (s.simulations[simId]?.status === 'completed') majorCompleted++; }); });
+        const completedPct = majorTotal ? Math.round((majorCompleted / majorTotal) * 100) : 0;
+        const inProgressPct = majorTotal ? Math.round((majorStudents.filter(s => simIds.some(id => s.simulations[id]?.status === 'in-progress')).length / majorStudents.length) * 100) : 0;
+        html += '<div class="major-section"><div class="major-section-title"><h3><div class="major-icon"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>' + major + '</h3><div class="major-section-meta"><div class="major-section-meta-item"><strong>' + majorStudents.length + '</strong> students</div><div class="major-section-meta-item"><strong>' + simIds.length + '</strong> simulations</div></div></div><div class="major-progress-bar"><div class="completed" style="width:' + completedPct + '%;"></div><div class="in-progress" style="width:' + inProgressPct + '%;"></div></div><div class="sim-ring-grid">';
+        simIds.forEach(simId => {
+          const sim = mockData.simulations[simId];
+          const data = { completed: [], inProgress: [], notStarted: [] };
+          let simScores = [];
+          majorStudents.forEach(s => { const studentSim = s.simulations[simId]; if (!studentSim || studentSim.status === 'not-started') data.notStarted.push(s); else if (studentSim.status === 'in-progress') data.inProgress.push(s); else { data.completed.push(s); if (studentSim.score) simScores.push(studentSim.score); } });
+          const completedPct = majorStudents.length ? Math.round((data.completed.length / majorStudents.length) * 100) : 0;
+          const avgSimScore = simScores.length ? Math.round(simScores.reduce((a, b) => a + b, 0) / simScores.length) : null;
+          const highScore = simScores.length ? Math.max(...simScores) : null;
+          const lowScore = simScores.length ? Math.min(...simScores) : null;
+          const ringColor = completedPct >= 70 ? 'green' : completedPct >= 30 ? 'amber' : 'red';
+          const radius = 58;
+          const circumference = 2 * Math.PI * radius;
+          const offset = circumference - (completedPct / 100) * circumference;
+          const cardId = major.replace(/\s+/g, '') + '_' + simId;
+          html += '<div class="sim-ring-card ' + ringColor + '-border" id="card_' + cardId + '" onclick="toggleSimExpand(\'' + cardId + '\', \'' + major + '\')"><div class="progress-ring"><svg width="140" height="140" viewBox="0 0 140 140"><circle class="progress-ring-bg" cx="70" cy="70" r="' + radius + '"/><circle class="progress-ring-fill ' + ringColor + '" cx="70" cy="70" r="' + radius + '" stroke-dasharray="' + circumference + '" stroke-dashoffset="' + offset + '"/></svg><div class="progress-ring-center"><div class="progress-ring-pct">' + completedPct + '%</div><div class="progress-ring-label">complete</div></div></div><div class="sim-ring-name">' + sim.name + '</div><div class="sim-ring-stats"><div class="sim-ring-stat"><div class="sim-ring-stat-value green">' + data.completed.length + '</div><div class="sim-ring-stat-label">Done</div></div><div class="sim-ring-stat"><div class="sim-ring-stat-value amber">' + data.inProgress.length + '</div><div class="sim-ring-stat-label">Active</div></div><div class="sim-ring-stat"><div class="sim-ring-stat-value gray">' + data.notStarted.length + '</div><div class="sim-ring-stat-label">Pending</div></div></div>' + (avgSimScore ? '<div class="sim-avg-score"><svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:#64748b;fill:none;stroke-width:2;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Avg Score: <strong>' + avgSimScore + '</strong></div>' : '') + '<div class="sim-expand-panel" id="panel_' + cardId + '"><div class="sim-expand-content"><div class="sim-expand-summary"><div class="sim-expand-stat"><div class="sim-expand-stat-value" style="color:#16a34a;">' + data.completed.length + '</div><div class="sim-expand-stat-label">Completed</div></div><div class="sim-expand-stat"><div class="sim-expand-stat-value" style="color:#f59e0b;">' + data.inProgress.length + '</div><div class="sim-expand-stat-label">In Progress</div></div><div class="sim-expand-stat"><div class="sim-expand-stat-value" style="color:#94a3b8;">' + data.notStarted.length + '</div><div class="sim-expand-stat-label">Not Started</div></div></div>' + (avgSimScore ? '<div style="display:flex;justify-content:space-between;margin-bottom:16px;font-size:13px;color:#64748b;"><span>High: <strong style="color:#16a34a;">' + highScore + '</strong></span><span>Avg: <strong style="color:#0f172a;">' + avgSimScore + '</strong></span><span>Low: <strong style="color:#ef4444;">' + lowScore + '</strong></span></div>' : '') + '<button class="sim-view-btn" onclick="event.stopPropagation(); filterStudentsBySim(\'' + major + '\', \'' + simId + '\')"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>View Students</button></div></div></div>';
+        });
+        html += '</div></div>';
+      });
+      document.getElementById('majorCardsContainer').innerHTML = html;
+    }
+    
+    function toggleSimExpand(cardId, major) { const card = document.getElementById('card_' + cardId); const panel = document.getElementById('panel_' + cardId); if (expandedSim === cardId) { card.classList.remove('expanded'); panel.classList.remove('open'); expandedSim = null; } else { if (expandedSim) { document.getElementById('card_' + expandedSim)?.classList.remove('expanded'); document.getElementById('panel_' + expandedSim)?.classList.remove('open'); } card.classList.add('expanded'); panel.classList.add('open'); expandedSim = cardId; } }
+    function filterStudentsBySim(major, simId) { state.filters.major = major; state.filters.classYear = ''; showView('students'); }
+
+    function exportData() { let csv = 'Name,Email,Major,Class,Readiness Score,Interviews,Companies,Resume Reviews,LinkedIn,Sims Completed\n'; mockData.students.forEach(s => { const sim = getSimProgress(s); csv += '"' + s.name + '","' + s.email + '","' + s.major + '",' + s.classYear + ',' + getLatestScore(s) + ',' + s.activities.interviews + ',' + s.activities.companies + ',' + s.activities.resumeReviews + ',' + s.activities.linkedinOptimizations + ',' + sim.completed + '/' + sim.total + '\n'; }); const blob = new Blob([csv], { type: 'text/csv' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'cloverpath-students-' + new Date().toISOString().split('T')[0] + '.csv'; a.click(); }
+    function handleGlobalSearch() { const q = document.getElementById('globalSearch').value.toLowerCase(); if (q.length < 2) return; const matches = mockData.students.filter(s => s.name.toLowerCase().includes(q) || s.email.toLowerCase().includes(q)); if (matches.length === 1) { showStudentDetail(matches[0].id); document.getElementById('globalSearch').value = ''; } else if (matches.length > 1) { state.filters = { major: '', classYear: '' }; showView('students'); } }
+    function toggleMobileMenu() { document.getElementById('sidebar').classList.toggle('mobile-open'); }
+    function closeMobileMenu() { document.getElementById('sidebar').classList.remove('mobile-open'); }
+    document.addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); document.getElementById('globalSearch').focus(); } if (e.key === 'Escape') closeMobileMenu(); });
+    document.addEventListener('DOMContentLoaded', () => renderDashboard());
+  </script>
+</body>
+</html>
