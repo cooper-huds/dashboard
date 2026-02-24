@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CloverPath Admin Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Lato', -apple-system, BlinkMacSystemFont, sans-serif; background: #f8fafc; color: #1e293b; min-height: 100vh; }
+    
+    /* Loading & Auth States */
+    .loading-screen, .auth-error-screen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
+    .loading-spinner { width: 48px; height: 48px; border: 4px solid #e2e8f0; border-top-color: #008208; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { margin-top: 16px; font-size: 16px; color: #64748b; }
+    .auth-error-screen { background: #fff; }
+    .auth-error-icon { width: 64px; height: 64px; background: #fee2e2; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
+    .auth-error-icon svg { width: 32px; height: 32px; stroke: #dc2626; fill: none; stroke-width: 2; }
+    .auth-error-title { font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 8px; }
+    .auth-error-message { font-size: 14px; color: #64748b; text-align: center; max-width: 400px; margin-bottom: 24px; }
+    .auth-error-btn { padding: 12px 24px; background: linear-gradient(135deg, #008208, #00a00a); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    
+    /* Top Bar */
+    .topbar { position: fixed; top: 0; left: 0; right: 0; height: 64px; background: #fff; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; z-index: 1000; }
+    .topbar-left { display: flex; align-items: center; gap: 16px; }
+    .mobile-menu-btn { display: none; background: none; border: none; cursor: pointer; padding: 8px; border-radius: 6px; }
+    .mobile-menu-btn:hover { background: #f1f5f9; }
+    .mobile-menu-btn svg { width: 24px; height: 24px; stroke: #64748b; fill: none; stroke-width: 2; }
+    .topbar-logo { height: 36px; }
+    .admin-badge { font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 4px; background: linear-gradient(135deg, #008208, #00a00a); color: #fff; text-transform: uppercase; letter-spacing: 0.5px; }
+    .org-name { font-size: 14px; color: #64748b; font-weight: 500; padding-left: 12px; border-left: 1px solid #e2e8f0; }
+    .topbar-center { display: flex; align-items: center; gap: 8px; }
+    .global-search { position: relative; width: 320px; }
+    .global-search input { width: 100%; padding: 10px 14px 10px 40px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; background: #f8fafc; }
+    .global-search input:focus { outline: none; border-color: #008208; background: #fff; box-shadow: 0 0 0 3px rgba(0,130,8,0.1); }
+    .global-search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; stroke: #94a3b8; fill: none; stroke-width: 2; }
+    .global-search .shortcut { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 11px; color: #94a3b8; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
+    .topbar-right { display: flex; align-items: center; gap: 8px; }
+    .profile-dropdown { display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 10px; border-radius: 8px; border: 1px solid transparent; }
+    .profile-dropdown:hover { background: #f8fafc; border-color: #e2e8f0; }
+    .profile-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #008208, #00a00a); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; }
+    .profile-info { display: flex; flex-direction: column; }
+    .profile-name { font-size: 14px; color: #1e293b; font-weight: 600; }
+    .profile-role { font-size: 12px; color: #64748b; }
+    
+    /* Layout */
+    .layout { display: flex; padding-top: 64px; }
+    .sidebar { position: fixed; left: 0; top: 64px; width: 240px; height: calc(100vh - 64px); background: #fff; border-right: 1px solid #e2e8f0; overflow-y: auto; padding: 20px 0; transition: transform 0.3s ease; }
+    .nav-section { padding: 0 16px; margin-bottom: 24px; }
+    .nav-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; cursor: pointer; color: #64748b; font-size: 14px; font-weight: 500; position: relative; }
+    .nav-item:hover { background: #f8fafc; color: #1e293b; }
+    .nav-item.active { background: #f0fdf4; color: #008208; font-weight: 600; }
+    .nav-item.active::before { content: ""; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 3px; height: 24px; background: #008208; border-radius: 0 3px 3px 0; }
+    .nav-item svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; flex-shrink: 0; }
+    .nav-badge { margin-left: auto; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: #dbeafe; color: #2563eb; }
+    .main-content { flex: 1; margin-left: 240px; padding: 24px; min-height: calc(100vh - 64px); }
+    
+    /* Page Header */
+    .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
+    .page-header-left h1 { font-size: 24px; font-weight: 700; color: #0f172a; font-family: "Oswald", sans-serif; }
+    .page-header-left p { font-size: 14px; color: #64748b; margin-top: 4px; }
+    
+    /* Buttons */
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; transition: all 0.15s; }
+    .btn svg { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .btn-primary { background: linear-gradient(135deg, #008208, #00a00a); color: #fff; }
+    .btn-primary:hover { background: linear-gradient(135deg, #006b07, #008208); box-shadow: 0 4px 12px rgba(0,130,8,0.3); }
+    .btn-secondary { background: #fff; color: #374151; border: 1px solid #d1d5db; }
+    .btn-secondary:hover { background: #f9fafb; border-color: #9ca3af; }
+    
+    /* Stats Grid */
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: #fff; border-radius: 12px; padding: 20px; border: 1px solid #e2e8f0; }
+    .stat-card:hover { border-color: #cbd5e1; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+    .stat-card.clickable { cursor: pointer; }
+    .stat-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+    .stat-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+    .stat-icon svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .stat-icon.green { background: #dcfce7; color: #16a34a; }
+    .stat-icon.blue { background: #dbeafe; color: #2563eb; }
+    .stat-icon.purple { background: #f3e8ff; color: #7c3aed; }
+    .stat-icon.amber { background: #fef3c7; color: #d97706; }
+    .stat-value { font-size: 32px; font-weight: 700; font-family: "Oswald", sans-serif; color: #0f172a; margin-bottom: 4px; }
+    .stat-label { font-size: 13px; color: #64748b; }
+    
+    /* Cards */
+    .card { background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 24px; }
+    .card-header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid #f1f5f9; }
+    .card-title { font-size: 16px; font-weight: 700; color: #0f172a; }
+    .card-body { padding: 24px; }
+    .card-body.no-padding { padding: 0; }
+    
+    /* Charts */
+    .chart-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; margin-bottom: 24px; }
+    .chart-container { height: 280px; position: relative; }
+    
+    /* Tables */
+    .table-wrapper { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+    th.sortable { cursor: pointer; }
+    th.sortable:hover { color: #1e293b; }
+    td { padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+    tr:hover { background: #fafafa; }
+    tr.clickable { cursor: pointer; }
+    .student-cell { display: flex; align-items: center; gap: 12px; }
+    .student-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #008208, #00a00a); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; flex-shrink: 0; }
+    .student-info { display: flex; flex-direction: column; }
+    .student-name { font-weight: 600; color: #0f172a; }
+    .student-email { font-size: 12px; color: #64748b; }
+    
+    /* Badges */
+    .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .badge.excellent { background: #dcfce7; color: #16a34a; }
+    .badge.good { background: #dbeafe; color: #2563eb; }
+    .badge.fair { background: #fef3c7; color: #d97706; }
+    .badge.needs-work { background: #fee2e2; color: #dc2626; }
+    .badge.active { background: #dcfce7; color: #16a34a; }
+    .badge.completed { background: #dcfce7; color: #16a34a; }
+    .badge.in-progress { background: #fef3c7; color: #d97706; }
+    .badge.not-started { background: #f1f5f9; color: #64748b; }
+    
+    /* View Button */
+    .view-btn { padding: 6px 14px; background: #fff; color: #008208; border: 1px solid #008208; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+    .view-btn:hover { background: #f0fdf4; }
+    
+    /* Filters */
+    .filter-bar { display: flex; align-items: center; gap: 12px; padding: 16px; background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 24px; flex-wrap: wrap; }
+    .filter-group { display: flex; align-items: center; gap: 8px; }
+    .filter-label { font-size: 13px; font-weight: 600; color: #64748b; }
+    .filter-select { padding: 8px 32px 8px 12px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; background: #fff; appearance: none; cursor: pointer; min-width: 140px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+    .filter-select:focus { outline: none; border-color: #008208; }
+    
+    /* Pagination */
+    .pagination { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-top: 1px solid #f1f5f9; }
+    .pagination-info { font-size: 14px; color: #64748b; }
+    .pagination-controls { display: flex; gap: 4px; }
+    .pagination-btn { padding: 8px 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 14px; cursor: pointer; }
+    .pagination-btn:hover:not(:disabled) { background: #f8fafc; border-color: #cbd5e1; }
+    .pagination-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .pagination-btn.active { background: #008208; color: #fff; border-color: #008208; }
+    
+    /* Views */
+    .view { display: none; }
+    .view.active { display: block; }
+    
+    /* Breadcrumb */
+    .breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; }
+    .breadcrumb-item { background: none; border: none; font-size: 14px; color: #64748b; cursor: pointer; padding: 0; font-family: inherit; }
+    .breadcrumb-item:hover { color: #008208; text-decoration: underline; }
+    .breadcrumb-item.active { color: #0f172a; font-weight: 600; cursor: default; }
+    .breadcrumb-item.active:hover { text-decoration: none; }
+    .breadcrumb-sep { color: #cbd5e1; }
+    
+    /* Student Detail */
+    .student-detail-header { display: flex; gap: 24px; padding: 24px; background: linear-gradient(135deg, #f0fdf4, #ecfdf5); border-radius: 12px; margin-bottom: 24px; align-items: center; }
+    .student-detail-avatar { width: 80px; height: 80px; border-radius: 50%; background: linear-gradient(135deg, #008208, #00a00a); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; flex-shrink: 0; }
+    .student-detail-info { flex: 1; }
+    .student-detail-name { font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 4px; display: flex; align-items: center; gap: 12px; }
+    .student-detail-meta { display: flex; gap: 16px; flex-wrap: wrap; }
+    .student-detail-meta span { font-size: 14px; color: #64748b; display: flex; align-items: center; gap: 6px; }
+    .student-detail-meta svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+    
+    /* Activity Grid */
+    .activity-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px; }
+    .activity-card { background: #fff; border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0; text-align: center; position: relative; overflow: hidden; }
+    .activity-card.complete::after { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: #16a34a; }
+    .activity-card.partial::after { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: #f59e0b; }
+    .activity-card-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; }
+    .activity-card-icon svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .activity-card-icon.green { background: #dcfce7; color: #16a34a; }
+    .activity-card-icon.blue { background: #dbeafe; color: #2563eb; }
+    .activity-card-icon.purple { background: #f3e8ff; color: #7c3aed; }
+    .activity-card-icon.amber { background: #fef3c7; color: #d97706; }
+    .activity-card-value { font-size: 24px; font-weight: 700; font-family: "Oswald", sans-serif; color: #0f172a; }
+    .activity-card-label { font-size: 12px; color: #64748b; margin-top: 4px; }
+    
+    /* Engagement Items */
+    .engagement-item { flex: 1; text-align: center; padding: 20px; background: #f8fafc; border-radius: 12px; }
+    .engagement-item-value { font-size: 32px; font-weight: 700; font-family: "Oswald", sans-serif; }
+    .engagement-item-label { font-size: 13px; color: #64748b; margin-top: 4px; }
+    .engagement-item.interviews .engagement-item-value { color: #2563eb; }
+    .engagement-item.companies .engagement-item-value { color: #16a34a; }
+    .engagement-item.resumes .engagement-item-value { color: #7c3aed; }
+    .engagement-item.linkedin .engagement-item-value { color: #d97706; }
+    
+    /* Resource Grid */
+    .resource-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; margin-top: 24px; }
+    .resource-card { background: #f8fafc; border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0; }
+    .resource-card:hover { border-color: #7c3aed; }
+    .resource-card-title { font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 4px; }
+    .resource-card-stat { font-size: 12px; color: #64748b; }
+    
+    /* Section Divider */
+    .section-divider { margin-top: 32px; padding-top: 32px; border-top: 1px solid #e2e8f0; }
+    .section-title { font-size: 18px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .section-title svg { width: 24px; height: 24px; stroke: #7c3aed; fill: none; stroke-width: 2; }
+    
+    /* Simulation Cards */
+    .sim-ring-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+    .sim-ring-card { background: #fff; border-radius: 16px; padding: 24px; border: 2px solid #e2e8f0; text-align: center; transition: all 0.2s ease; cursor: pointer; }
+    .sim-ring-card:hover { border-color: #94a3b8; box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+    .sim-ring-card.expanded { border-color: #008208; box-shadow: 0 8px 24px rgba(0,130,8,0.15); }
+    .sim-ring-card.green-border { border-color: #bbf7d0; }
+    .sim-ring-card.amber-border { border-color: #fde68a; }
+    .sim-ring-card.red-border { border-color: #fecaca; }
+    .progress-ring { position: relative; width: 140px; height: 140px; margin: 0 auto 16px; }
+    .progress-ring-bg { fill: none; stroke: #f1f5f9; stroke-width: 12; }
+    .progress-ring-fill { fill: none; stroke-width: 12; stroke-linecap: round; transition: stroke-dashoffset 0.6s ease; }
+    .progress-ring-fill.green { stroke: url(#greenGradient); }
+    .progress-ring-fill.amber { stroke: url(#amberGradient); }
+    .progress-ring-fill.red { stroke: url(#redGradient); }
+    .progress-ring-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; }
+    .progress-ring-pct { font-size: 28px; font-weight: 700; font-family: "Oswald", sans-serif; color: #0f172a; }
+    .progress-ring-label { font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; }
+    .sim-ring-name { font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 12px; }
+    .sim-ring-stats { display: flex; justify-content: center; gap: 20px; }
+    .sim-ring-stat { text-align: center; }
+    .sim-ring-stat-value { font-size: 18px; font-weight: 700; font-family: "Oswald", sans-serif; }
+    .sim-ring-stat-value.green { color: #16a34a; }
+    .sim-ring-stat-value.amber { color: #f59e0b; }
+    .sim-ring-stat-value.gray { color: #94a3b8; }
+    .sim-ring-stat-label { font-size: 11px; color: #64748b; }
+    .sim-avg-score { font-size: 13px; color: #64748b; margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+    .sim-expand-panel { max-height: 0; overflow: hidden; transition: max-height 0.3s ease, padding 0.3s ease; }
+    .sim-expand-panel.open { max-height: 300px; padding-top: 16px; margin-top: 16px; border-top: 1px solid #f1f5f9; }
+    .sim-expand-content { text-align: left; }
+    .sim-expand-summary { display: flex; justify-content: space-around; margin-bottom: 16px; }
+    .sim-expand-stat { text-align: center; }
+    .sim-expand-stat-value { font-size: 20px; font-weight: 700; font-family: "Oswald", sans-serif; }
+    .sim-expand-stat-label { font-size: 11px; color: #64748b; }
+    .sim-view-btn { width: 100%; padding: 10px; background: linear-gradient(135deg, #008208, #00a00a); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .sim-view-btn:hover { background: linear-gradient(135deg, #006b07, #008208); }
+    .sim-view-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+    .major-section { margin-bottom: 32px; }
+    .major-section-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
+    .major-section-title h3 { font-size: 18px; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 12px; }
+    .major-section-title .major-icon { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #008208, #00a00a); display: flex; align-items: center; justify-content: center; }
+    .major-section-title .major-icon svg { width: 20px; height: 20px; stroke: #fff; fill: none; stroke-width: 2; }
+    .major-section-meta { display: flex; gap: 20px; font-size: 14px; }
+    .major-section-meta-item { display: flex; align-items: center; gap: 8px; padding: 8px 16px; background: #f8fafc; border-radius: 8px; }
+    .major-section-meta-item strong { font-family: "Oswald", sans-serif; font-size: 18px; }
+    .major-progress-bar { height: 8px; background: #f1f5f9; border-radius: 4px; margin-bottom: 24px; overflow: hidden; display: flex; }
+    .major-progress-bar .completed { background: linear-gradient(90deg, #16a34a, #22c55e); }
+    .major-progress-bar .in-progress { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+    
+    /* Empty State */
+    .empty-state { text-align: center; padding: 60px 20px; }
+    .empty-state-icon { width: 64px; height: 64px; background: #f1f5f9; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+    .empty-state-icon svg { width: 32px; height: 32px; stroke: #94a3b8; fill: none; stroke-width: 2; }
+    .empty-state-title { font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 8px; }
+    .empty-state-text { font-size: 14px; color: #64748b; }
+    
+    /* Mobile */
+    @media (max-width: 1024px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } .chart-grid { grid-template-columns: 1fr; } .activity-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 768px) { 
+      .sidebar { transform: translateX(-100%); position: fixed; z-index: 100; } 
+      .sidebar.mobile-open { transform: translateX(0); } 
+      .main-content { margin-left: 0; } 
+      .mobile-menu-btn { display: block; } 
+      .global-search { width: 200px; } 
+      .topbar-center { display: none; }
+      .org-name { display: none; }
+    }
+    @media (max-width: 640px) { .main-content { padding: 16px; } .stats-grid, .activity-grid { grid-template-columns: 1fr 1fr; } .student-detail-header { flex-direction: column; text-align: center; } }
+  </style>
+</head>
+<body>
+  <!-- Loading Screen -->
+  <div class="loading-screen" id="loadingScreen">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Loading dashboard...</div>
+  </div>
+
+  <!-- Auth Error Screen (hidden by default) -->
+  <div class="auth-error-screen" id="authErrorScreen" style="display: none;">
+    <div class="auth-error-icon">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <div class="auth-error-title">Access Denied</div>
+    <div class="auth-error-message" id="authErrorMessage">You don't have permission to access this dashboard. Please contact your administrator.</div>
+    <button class="auth-error-btn" onclick="window.location.href='/dashboard'">Return to Dashboard</button>
+  </div>
+
+  <!-- Main App (hidden until auth) -->
+  <div id="mainApp" style="display: none;">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="mobile-menu-btn" onclick="toggleMobileMenu()"><svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+        <img src="https://cdn.prod.website-files.com/68bf2f9e0722f5e0b402ad4d/691bf346a23098b5a5a4c19b_CloverPath_HorizontalLogo_FullColor.png" alt="CloverPath" class="topbar-logo">
+        <span class="admin-badge">Admin</span>
+        <span class="org-name" id="orgNameDisplay"></span>
+      </div>
+      <div class="topbar-center">
+        <div class="global-search">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="Search students..." id="globalSearch" oninput="handleGlobalSearch()">
+          <span class="shortcut">⌘K</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="profile-dropdown">
+          <div class="profile-avatar" id="adminAvatar">CS</div>
+          <div class="profile-info"><span class="profile-name" id="adminName">Career Services</span><span class="profile-role">Administrator</span></div>
+        </div>
+      </div>
+    </header>
+    
+    <div class="layout">
+      <aside class="sidebar" id="sidebar">
+        <div class="nav-section">
+          <div class="nav-item active" data-view="dashboard" onclick="showView('dashboard')"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboard</div>
+          <div class="nav-item" data-view="students" onclick="showView('students')"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Students<span class="nav-badge" id="studentCountBadge">0</span></div>
+          <div class="nav-item" data-view="learning" onclick="showView('learning')"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>Simulations</div>
+          <div class="nav-item" data-view="tools" onclick="showView('tools')"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Tools & Resources</div>
+        </div>
+      </aside>
+      
+      <main class="main-content">
+        <!-- Dashboard View -->
+        <div class="view active" id="view-dashboard">
+          <div class="page-header">
+            <div class="page-header-left"><h1>Dashboard</h1><p>Track student career readiness and engagement</p></div>
+            <div class="page-actions"><button class="btn btn-secondary" onclick="exportData()"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export</button></div>
+          </div>
+          <div class="stats-grid" id="dashboardStats"></div>
+          <div class="chart-grid">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">Career Readiness Score Distribution</h3></div>
+              <div class="card-body"><div class="chart-container"><canvas id="readinessDistChart"></canvas></div></div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">Platform Engagement</h3></div>
+              <div class="card-body"><div style="display: flex; gap: 16px;" id="engagementOverview"></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3 class="card-title">Activity Overview</h3><span style="font-size: 13px; color: #64748b;">Total engagement across all students</span></div>
+            <div class="card-body"><div class="activity-grid" id="activityOverview"></div></div>
+          </div>
+        </div>
+
+        <!-- Students View -->
+        <div class="view" id="view-students">
+          <div class="page-header"><div class="page-header-left"><h1>All Students</h1><p>Track student progress toward career readiness</p></div><div class="page-actions"><button class="btn btn-secondary" onclick="exportData()"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Export</button></div></div>
+          <div class="filter-bar">
+            <div class="filter-group"><span class="filter-label">Major:</span><select class="filter-select" id="filterMajor" onchange="applyFilters()"><option value="">All Majors</option></select></div>
+            <div class="filter-group"><span class="filter-label">Class:</span><select class="filter-select" id="filterClass" onchange="applyFilters()"><option value="">All Classes</option></select></div>
+          </div>
+          <div class="card">
+            <div class="card-body no-padding"><div class="table-wrapper"><table><thead><tr><th class="sortable" onclick="sortTable('name')">Student</th><th class="sortable" onclick="sortTable('major')">Major</th><th class="sortable" onclick="sortTable('readiness')">Readiness Score</th><th>Activities</th><th>Simulations</th><th></th></tr></thead><tbody id="studentsTableBody"></tbody></table></div><div class="pagination"><div class="pagination-info" id="paginationInfo">Showing 0 of 0</div><div class="pagination-controls" id="paginationControls"></div></div></div>
+          </div>
+        </div>
+
+        <!-- Student Detail View -->
+        <div class="view" id="view-student-detail">
+          <div class="breadcrumb">
+            <button class="breadcrumb-item" onclick="showView('students')">All Students</button>
+            <span class="breadcrumb-sep">›</span>
+            <span class="breadcrumb-item active" id="studentDetailName">Student Name</span>
+          </div>
+          <div class="student-detail-header" id="studentDetailHeader"></div>
+          <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header"><h3 class="card-title">Career Readiness Score History</h3></div>
+            <div class="card-body"><div class="chart-container" style="height: 200px;"><canvas id="studentScoreChart"></canvas></div></div>
+          </div>
+          <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header"><h3 class="card-title">Activity Progress</h3><span style="font-size: 13px; color: #64748b;">Platform engagement summary</span></div>
+            <div class="card-body"><div class="activity-grid" id="studentActivityGrid"></div></div>
+          </div>
+          <div class="chart-grid">
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">Simulation Progress</h3></div>
+              <div class="card-body" id="studentSimulationsContainer"></div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3 class="card-title">Tool Usage</h3></div>
+              <div class="card-body"><div class="chart-container"><canvas id="studentToolChart"></canvas></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tools View -->
+        <div class="view" id="view-tools">
+          <div class="page-header"><div class="page-header-left"><h1>Tools & Resources</h1><p>Platform engagement metrics</p></div></div>
+          <div class="stats-grid" id="toolsStats"></div>
+          <div class="chart-grid">
+            <div class="card"><div class="card-header"><h3 class="card-title">Tool Usage Breakdown</h3></div><div class="card-body"><div class="chart-container"><canvas id="toolBreakdownChart"></canvas></div></div></div>
+            <div class="card"><div class="card-header"><h3 class="card-title">Resource Views</h3></div><div class="card-body"><div class="chart-container"><canvas id="resourceViewsChart"></canvas></div></div></div>
+          </div>
+        </div>
+
+        <!-- Learning/Simulations View -->
+        <div class="view" id="view-learning">
+          <div class="page-header"><div class="page-header-left"><h1>Simulations</h1><p>Track simulation progress by major</p></div></div>
+          <div class="stats-grid" id="simStats"></div>
+          <div id="majorCardsContainer"></div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // =====================================================
+    // SUPABASE CONFIGURATION
+    // =====================================================
+    const SUPABASE_URL = 'https://clhuplhaejneecbyhphh.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNsaHVwbGhhZWpuZWVjYnlocGhoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA2Mzc5OTksImV4cCI6MjA3NjIxMzk5OX0.ropRR6Izmcy1sRV5v9HDDvBTlCTTGnJcLUvdSyYloBI';
+    
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // =====================================================
+    // GLOBAL STATE
+    // =====================================================
+    let currentAdmin = null;
+    let organizationId = null;
+    let organizationName = '';
+    let studentsData = [];
+    let simulationResults = [];
+    let simulationProgress = [];
+    let activityData = {
+      interviews: [],
+      companies: [],
+      resumes: [],
+      linkedin: [],
+      resourceViews: []
+    };
+
+    const state = {
+      currentView: 'dashboard',
+      filters: { major: '', classYear: '' },
+      sort: { field: 'readiness', direction: 'desc' },
+      pagination: { page: 1, perPage: 10 },
+      selectedStudent: null
+    };
+
+    const charts = {};
+
+    // Simulation type mappings
+    const simulationTypes = {
+      'vc_analysis': { id: 'vc', name: 'Venture Capital', track: 'Finance' },
+      'ma_analysis': { id: 'ma', name: 'M&A', track: 'Finance' },
+      'pe_analysis': { id: 'pe', name: 'Private Equity', track: 'Finance' },
+      'consulting': { id: 'consulting', name: 'Consulting', track: 'Strategy' },
+      'corporate_strategy': { id: 'corpstrat', name: 'Corporate Strategy', track: 'Strategy' },
+      'supply_chain': { id: 'supplychain', name: 'Supply Chain', track: 'Operations' },
+      'cybersecurity': { id: 'cyber', name: 'Cybersecurity', track: 'Tech' },
+      'software_engineering': { id: 'swe', name: 'Software Engineering', track: 'Tech' },
+      'marketing': { id: 'marketing', name: 'Marketing', track: 'Marketing' },
+      'environmental_science': { id: 'envsci', name: 'Environmental Science', track: 'Science' },
+      'clinical_research': { id: 'clinical', name: 'Clinical Research', track: 'Science' },
+      'public_health': { id: 'publichealth', name: 'Public Health', track: 'Science' }
+    };
+
+    // Major to simulation mapping
+    const majorSimulations = {
+      'Finance': ['vc_analysis', 'ma_analysis', 'pe_analysis'],
+      'Business Administration': ['consulting', 'corporate_strategy', 'supply_chain'],
+      'Business': ['consulting', 'corporate_strategy', 'supply_chain'],
+      'Computer Science': ['software_engineering', 'cybersecurity'],
+      'Marketing': ['marketing'],
+      'Economics': ['consulting', 'corporate_strategy', 'pe_analysis'],
+      'Biology': ['clinical_research', 'public_health'],
+      'Environmental Science': ['environmental_science', 'public_health'],
+      'Public Health': ['public_health', 'clinical_research']
+    };
+
+    // =====================================================
+    // AUTHENTICATION & INITIALIZATION
+    // =====================================================
+    async function initialize() {
+      try {
+        // Check if user is logged in
+        const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+        
+        if (authError || !user) {
+          showAuthError('Please log in to access the admin dashboard.');
+          return;
+        }
+
+        // Get user profile and check admin status
+        const { data: profile, error: profileError } = await supabaseClient
+          .from('profiles')
+          .select('*, organizations(name)')
+          .eq('id', user.id)
+          .single();
+
+        if (profileError || !profile) {
+          showAuthError('Unable to load your profile. Please contact support.');
+          return;
+        }
+
+        // Check if user is an org admin
+        if (!profile.is_org_admin) {
+          showAuthError('You do not have administrator access. Please contact your organization administrator.');
+          return;
+        }
+
+        // Check if user has an organization
+        if (!profile.organization_id) {
+          showAuthError('Your account is not associated with an organization. Please contact support.');
+          return;
+        }
+
+        // Store admin info
+        currentAdmin = profile;
+        organizationId = profile.organization_id;
+        organizationName = profile.organizations?.name || 'Your Organization';
+
+        // Update UI with admin info
+        document.getElementById('orgNameDisplay').textContent = organizationName;
+        document.getElementById('adminName').textContent = profile.full_name || 'Administrator';
+        document.getElementById('adminAvatar').textContent = getInitials(profile.full_name || profile.email);
+
+        // IMMEDIATELY show dashboard with empty state
+        document.getElementById('loadingScreen').style.display = 'none';
+        document.getElementById('mainApp').style.display = 'block';
+        renderDashboardEmpty(); // Show empty dashboard structure first
+
+        // THEN load data in background
+        await loadAllData();
+
+        // Re-render with actual data
+        renderDashboard();
+
+      } catch (err) {
+        console.error('Initialization error:', err);
+        showAuthError('An error occurred while loading the dashboard. Please try again.');
+      }
+    }
+
+    function renderDashboardEmpty() {
+      // Show dashboard structure with loading indicators / zeros
+      document.getElementById('dashboardStats').innerHTML = `
+        <div class="stat-card clickable" onclick="showView('students')"><div class="stat-header"><div class="stat-icon green"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div></div><div class="stat-value">--</div><div class="stat-label">Total Students</div></div>
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon blue"><svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></div></div><div class="stat-value">--</div><div class="stat-label">Avg Readiness Score</div></div>
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon purple"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div></div><div class="stat-value">--</div><div class="stat-label">Active Students</div></div>
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon amber"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div></div><div class="stat-value">--</div><div class="stat-label">Simulations Completed</div></div>
+      `;
+
+      document.getElementById('engagementOverview').innerHTML = `
+        <div class="engagement-item interviews"><div class="engagement-item-value">--</div><div class="engagement-item-label">Mock Interviews</div></div>
+        <div class="engagement-item companies"><div class="engagement-item-value">--</div><div class="engagement-item-label">Companies Researched</div></div>
+        <div class="engagement-item resumes"><div class="engagement-item-value">--</div><div class="engagement-item-label">Resume Reviews</div></div>
+        <div class="engagement-item linkedin"><div class="engagement-item-value">--</div><div class="engagement-item-label">LinkedIn Analyses</div></div>
+      `;
+
+      document.getElementById('activityOverview').innerHTML = `
+        <div class="activity-card"><div class="activity-card-icon blue"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="activity-card-value">--</div><div class="activity-card-label">Mock Interviews</div></div>
+        <div class="activity-card"><div class="activity-card-icon green"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div><div class="activity-card-value">--</div><div class="activity-card-label">Companies Researched</div></div>
+        <div class="activity-card"><div class="activity-card-icon purple"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="activity-card-value">--</div><div class="activity-card-label">Resume Reviews</div></div>
+        <div class="activity-card"><div class="activity-card-icon amber"><svg viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg></div><div class="activity-card-value">--</div><div class="activity-card-label">LinkedIn Analyses</div></div>
+        <div class="activity-card"><div class="activity-card-icon green"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div><div class="activity-card-value">--</div><div class="activity-card-label">Simulations Done</div></div>
+      `;
+    }
+
+    function showAuthError(message) {
+      document.getElementById('loadingScreen').style.display = 'none';
+      document.getElementById('authErrorMessage').textContent = message;
+      document.getElementById('authErrorScreen').style.display = 'flex';
+    }
+
+    // =====================================================
+    // DATA LOADING
+    // =====================================================
+    async function loadAllData() {
+      await Promise.all([
+        loadStudents(),
+        loadReadinessScores(),
+        loadSimulationData(),
+        loadActivityData()
+      ]);
+
+      // Merge data into students
+      mergeStudentData();
+      
+      // Update student count badge
+      document.getElementById('studentCountBadge').textContent = studentsData.length;
+      
+      // Populate filters
+      populateFilters();
+    }
+
+    async function loadStudents() {
+      const { data, error } = await supabaseClient
+        .from('profiles')
+        .select('id, email, full_name, major, school_year, graduation_year')
+        .eq('organization_id', organizationId)
+        .eq('is_org_admin', false);
+
+      if (error) {
+        console.error('Error loading students:', error);
+        return;
+      }
+
+      studentsData = (data || []).map(s => ({
+        id: s.id,
+        email: s.email,
+        name: s.full_name || s.email.split('@')[0],
+        major: s.major || 'Undeclared',
+        classYear: s.graduation_year || new Date().getFullYear() + 1,
+        schoolYear: s.school_year,
+        readinessScores: [],
+        activities: { interviews: 0, companies: 0, resumeReviews: 0, linkedinOptimizations: 0 },
+        simulations: {},
+        resourceViews: 0
+      }));
+    }
+
+    async function loadReadinessScores() {
+      const { data, error } = await supabaseClient
+        .from('career_readiness_assessments')
+        .select('email, overall_score, category_scores, created_at')
+        .eq('organization_id', organizationId)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Error loading readiness scores:', error);
+        return;
+      }
+
+      // Group scores by email
+      const scoresByEmail = {};
+      (data || []).forEach(s => {
+        if (!scoresByEmail[s.email]) scoresByEmail[s.email] = [];
+        scoresByEmail[s.email].push({
+          score: s.overall_score,
+          categoryScores: s.category_scores,
+          date: s.created_at
+        });
+      });
+
+      // Attach to students
+      studentsData.forEach(student => {
+        if (scoresByEmail[student.email]) {
+          student.readinessScores = scoresByEmail[student.email];
+        }
+      });
+    }
+
+    async function loadSimulationData() {
+      // Load simulation results
+      const { data: results, error: resultsError } = await supabaseClient
+        .from('simulation_results')
+        .select('user_email, simulation_type, total_score, status, completed_at')
+        .eq('organization_id', organizationId);
+
+      if (resultsError) {
+        console.error('Error loading simulation results:', resultsError);
+      } else {
+        simulationResults = results || [];
+      }
+
+      // Load simulation progress
+      const { data: progress, error: progressError } = await supabaseClient
+        .from('simulation_progress')
+        .select('user_email, simulation_type, status, current_section')
+        .eq('organization_id', organizationId);
+
+      if (progressError) {
+        console.error('Error loading simulation progress:', progressError);
+      } else {
+        simulationProgress = progress || [];
+      }
+    }
+
+    async function loadActivityData() {
+      // Load interview sessions
+      const { data: interviews } = await supabaseClient
+        .from('interview_sessions')
+        .select('user_email, score, created_at')
+        .eq('organization_id', organizationId);
+      activityData.interviews = interviews || [];
+
+      // Load company research
+      const { data: companies } = await supabaseClient
+        .from('company_research_sessions')
+        .select('user_email, company_name, created_at')
+        .eq('organization_id', organizationId);
+      activityData.companies = companies || [];
+
+      // Load resume analyzer sessions
+      const { data: resumes } = await supabaseClient
+        .from('resume_analyzer_sessions')
+        .select('user_email, match_score, created_at')
+        .eq('organization_id', organizationId);
+      activityData.resumes = resumes || [];
+
+      // Load LinkedIn analyzer sessions
+      const { data: linkedin } = await supabaseClient
+        .from('linkedin_analyzer_sessions')
+        .select('user_email, connection_count, created_at')
+        .eq('organization_id', organizationId);
+      activityData.linkedin = linkedin || [];
+
+      // Load resource views
+      const { data: resources } = await supabaseClient
+        .from('resource_views')
+        .select('user_email, resource_id, first_viewed_at')
+        .eq('organization_id', organizationId);
+      activityData.resourceViews = resources || [];
+    }
+
+    function mergeStudentData() {
+      studentsData.forEach(student => {
+        // Count activities
+        student.activities.interviews = activityData.interviews.filter(i => i.user_email === student.email).length;
+        student.activities.companies = activityData.companies.filter(c => c.user_email === student.email).length;
+        student.activities.resumeReviews = activityData.resumes.filter(r => r.user_email === student.email).length;
+        student.activities.linkedinOptimizations = activityData.linkedin.filter(l => l.user_email === student.email).length;
+        student.resourceViews = activityData.resourceViews.filter(r => r.user_email === student.email).length;
+
+        // Process simulation data
+        const studentResults = simulationResults.filter(r => r.user_email === student.email);
+        const studentProgress = simulationProgress.filter(p => p.user_email === student.email);
+
+        // Build simulations object
+        studentResults.forEach(r => {
+          student.simulations[r.simulation_type] = {
+            status: r.status === 'completed' ? 'completed' : 'in-progress',
+            score: r.total_score
+          };
+        });
+
+        // Add in-progress from progress table if not in results
+        studentProgress.forEach(p => {
+          if (!student.simulations[p.simulation_type]) {
+            student.simulations[p.simulation_type] = {
+              status: p.status === 'completed' ? 'completed' : 'in-progress',
+              score: null
+            };
+          }
+        });
+      });
+    }
+
+    // =====================================================
+    // HELPER FUNCTIONS
+    // =====================================================
+    const getInitials = name => {
+      if (!name) return '?';
+      return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    };
+
+    const getLatestScore = s => {
+      if (!s.readinessScores || s.readinessScores.length === 0) return null;
+      return s.readinessScores[s.readinessScores.length - 1]?.score || null;
+    };
+
+    const getScoreClass = score => {
+      if (score === null) return 'needs-work';
+      return score >= 80 ? 'excellent' : score >= 65 ? 'good' : score >= 50 ? 'fair' : 'needs-work';
+    };
+
+    const getScoreLabel = score => {
+      if (score === null) return 'No Score';
+      return score >= 80 ? 'Excellent' : score >= 65 ? 'Good' : score >= 50 ? 'Fair' : 'Needs Work';
+    };
+
+    function getSimProgress(student) {
+      const majorSims = majorSimulations[student.major] || [];
+      if (!majorSims.length) return { completed: 0, total: 0, pct: 0 };
+      
+      let completed = 0;
+      majorSims.forEach(simType => {
+        if (student.simulations[simType]?.status === 'completed') completed++;
+      });
+      
+      return { completed, total: majorSims.length, pct: majorSims.length ? completed / majorSims.length : 0 };
+    }
+
+    function destroyAllCharts() {
+      Object.values(charts).forEach(c => c?.destroy?.());
+      Object.keys(charts).forEach(k => delete charts[k]);
+    }
+
+    function populateFilters() {
+      // Get unique majors
+      const majors = [...new Set(studentsData.map(s => s.major))].filter(Boolean).sort();
+      const majorSelect = document.getElementById('filterMajor');
+      majorSelect.innerHTML = '<option value="">All Majors</option>' + 
+        majors.map(m => `<option value="${m}">${m}</option>`).join('');
+
+      // Get unique class years
+      const years = [...new Set(studentsData.map(s => s.classYear))].filter(Boolean).sort();
+      const classSelect = document.getElementById('filterClass');
+      classSelect.innerHTML = '<option value="">All Classes</option>' + 
+        years.map(y => `<option value="${y}">${y}</option>`).join('');
+    }
+
+    // =====================================================
+    // VIEW MANAGEMENT
+    // =====================================================
+    function showView(viewName) {
+      state.currentView = viewName;
+      destroyAllCharts();
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById('view-' + viewName).classList.add('active');
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.querySelector('.nav-item[data-view="' + viewName + '"]')?.classList.add('active');
+      
+      if (viewName === 'dashboard') renderDashboard();
+      else if (viewName === 'students') renderStudents();
+      else if (viewName === 'tools') renderTools();
+      else if (viewName === 'learning') renderLearning();
+      
+      closeMobileMenu();
+    }
+
+    function showStudentDetail(studentId) {
+      state.selectedStudent = studentId;
+      state.currentView = 'student-detail';
+      destroyAllCharts();
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById('view-student-detail').classList.add('active');
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      renderStudentDetail(studentId);
+    }
+
+    // =====================================================
+    // RENDER FUNCTIONS
+    // =====================================================
+    function renderDashboard() {
+      const students = studentsData;
+      
+      // Show helpful empty state if no students
+      if (students.length === 0) {
+        document.getElementById('dashboardStats').innerHTML = `
+          <div class="stat-card clickable" onclick="showView('students')"><div class="stat-header"><div class="stat-icon green"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div></div><div class="stat-value">0</div><div class="stat-label">Total Students</div></div>
+          <div class="stat-card"><div class="stat-header"><div class="stat-icon blue"><svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></div></div><div class="stat-value">--</div><div class="stat-label">Avg Readiness Score</div></div>
+          <div class="stat-card"><div class="stat-header"><div class="stat-icon purple"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div></div><div class="stat-value">0</div><div class="stat-label">Active Students</div></div>
+          <div class="stat-card"><div class="stat-header"><div class="stat-icon amber"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div></div><div class="stat-value">0</div><div class="stat-label">Simulations Completed</div></div>
+        `;
+        
+        document.getElementById('engagementOverview').innerHTML = `
+          <div style="flex: 1; text-align: center; padding: 40px 20px;">
+            <div style="width: 48px; height: 48px; background: #f1f5f9; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
+              <svg viewBox="0 0 24 24" style="width: 24px; height: 24px; stroke: #94a3b8; fill: none; stroke-width: 2;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <div style="font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 4px;">No students enrolled yet</div>
+            <div style="font-size: 14px; color: #64748b;">Once students from ${organizationName} sign up and start using CloverPath, their engagement data will appear here.</div>
+          </div>
+        `;
+
+        document.getElementById('activityOverview').innerHTML = `
+          <div class="activity-card"><div class="activity-card-icon blue"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="activity-card-value">0</div><div class="activity-card-label">Mock Interviews</div></div>
+          <div class="activity-card"><div class="activity-card-icon green"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div><div class="activity-card-value">0</div><div class="activity-card-label">Companies Researched</div></div>
+          <div class="activity-card"><div class="activity-card-icon purple"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="activity-card-value">0</div><div class="activity-card-label">Resume Reviews</div></div>
+          <div class="activity-card"><div class="activity-card-icon amber"><svg viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg></div><div class="activity-card-value">0</div><div class="activity-card-label">LinkedIn Analyses</div></div>
+          <div class="activity-card"><div class="activity-card-icon green"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div><div class="activity-card-value">0</div><div class="activity-card-label">Simulations Done</div></div>
+        `;
+        return;
+      }
+
+      // Calculate stats
+      const studentsWithScores = students.filter(s => getLatestScore(s) !== null);
+      const avgScore = studentsWithScores.length 
+        ? Math.round(studentsWithScores.reduce((sum, s) => sum + getLatestScore(s), 0) / studentsWithScores.length)
+        : '--';
+
+      let totalInterviews = 0, totalCompanies = 0, totalResume = 0, totalLinkedin = 0, totalSimsCompleted = 0, activeStudents = 0;
+      
+      students.forEach(s => {
+        totalInterviews += s.activities.interviews;
+        totalCompanies += s.activities.companies;
+        totalResume += s.activities.resumeReviews;
+        totalLinkedin += s.activities.linkedinOptimizations;
+        totalSimsCompleted += getSimProgress(s).completed;
+        const total = s.activities.interviews + s.activities.companies + s.activities.resumeReviews + s.activities.linkedinOptimizations;
+        if (total >= 1) activeStudents++;
+      });
+
+      // Render stats
+      document.getElementById('dashboardStats').innerHTML = `
+        <div class="stat-card clickable" onclick="showView('students')"><div class="stat-header"><div class="stat-icon green"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div></div><div class="stat-value">${students.length}</div><div class="stat-label">Total Students</div></div>
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon blue"><svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg></div></div><div class="stat-value">${avgScore}</div><div class="stat-label">Avg Readiness Score</div></div>
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon purple"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div></div><div class="stat-value">${activeStudents}</div><div class="stat-label">Active Students</div></div>
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon amber"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div></div><div class="stat-value">${totalSimsCompleted}</div><div class="stat-label">Simulations Completed</div></div>
+      `;
+
+      // Score distribution chart
+      const scoreBuckets = { '0-49': 0, '50-64': 0, '65-79': 0, '80-100': 0, 'No Score': 0 };
+      students.forEach(s => {
+        const score = getLatestScore(s);
+        if (score === null) scoreBuckets['No Score']++;
+        else if (score < 50) scoreBuckets['0-49']++;
+        else if (score < 65) scoreBuckets['50-64']++;
+        else if (score < 80) scoreBuckets['65-79']++;
+        else scoreBuckets['80-100']++;
+      });
+
+      const distCtx = document.getElementById('readinessDistChart');
+      if (distCtx) {
+        charts.readinessDist = new Chart(distCtx, {
+          type: 'bar',
+          data: {
+            labels: ['0-49', '50-64', '65-79', '80-100', 'No Score'],
+            datasets: [{
+              label: 'Students',
+              data: Object.values(scoreBuckets),
+              backgroundColor: ['#fee2e2', '#fef3c7', '#dbeafe', '#dcfce7', '#f1f5f9']
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: true } }
+          }
+        });
+      }
+
+      // Engagement overview
+      document.getElementById('engagementOverview').innerHTML = `
+        <div class="engagement-item interviews"><div class="engagement-item-value">${totalInterviews}</div><div class="engagement-item-label">Mock Interviews</div></div>
+        <div class="engagement-item companies"><div class="engagement-item-value">${totalCompanies}</div><div class="engagement-item-label">Companies Researched</div></div>
+        <div class="engagement-item resumes"><div class="engagement-item-value">${totalResume}</div><div class="engagement-item-label">Resume Reviews</div></div>
+        <div class="engagement-item linkedin"><div class="engagement-item-value">${totalLinkedin}</div><div class="engagement-item-label">LinkedIn Analyses</div></div>
+      `;
+
+      // Activity overview
+      document.getElementById('activityOverview').innerHTML = `
+        <div class="activity-card"><div class="activity-card-icon blue"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="activity-card-value">${totalInterviews}</div><div class="activity-card-label">Mock Interviews</div></div>
+        <div class="activity-card"><div class="activity-card-icon green"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div><div class="activity-card-value">${totalCompanies}</div><div class="activity-card-label">Companies Researched</div></div>
+        <div class="activity-card"><div class="activity-card-icon purple"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="activity-card-value">${totalResume}</div><div class="activity-card-label">Resume Reviews</div></div>
+        <div class="activity-card"><div class="activity-card-icon amber"><svg viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg></div><div class="activity-card-value">${totalLinkedin}</div><div class="activity-card-label">LinkedIn Analyses</div></div>
+        <div class="activity-card"><div class="activity-card-icon green"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div><div class="activity-card-value">${totalSimsCompleted}</div><div class="activity-card-label">Simulations Done</div></div>
+      `;
+    }
+
+    function renderStudents() {
+      let filtered = [...studentsData];
+
+      // Apply filters
+      if (state.filters.major) {
+        filtered = filtered.filter(s => s.major === state.filters.major);
+      }
+      if (state.filters.classYear) {
+        filtered = filtered.filter(s => s.classYear == state.filters.classYear);
+      }
+
+      // Apply sorting
+      filtered.sort((a, b) => {
+        let aVal, bVal;
+        switch (state.sort.field) {
+          case 'name':
+            aVal = a.name.toLowerCase();
+            bVal = b.name.toLowerCase();
+            break;
+          case 'major':
+            aVal = a.major.toLowerCase();
+            bVal = b.major.toLowerCase();
+            break;
+          case 'readiness':
+          default:
+            aVal = getLatestScore(a) || 0;
+            bVal = getLatestScore(b) || 0;
+            break;
+        }
+        if (aVal < bVal) return state.sort.direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return state.sort.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+      // Pagination
+      const totalPages = Math.ceil(filtered.length / state.pagination.perPage) || 1;
+      const start = (state.pagination.page - 1) * state.pagination.perPage;
+      const end = start + state.pagination.perPage;
+      const pageStudents = filtered.slice(start, end);
+
+      // Render table
+      const tbody = document.getElementById('studentsTableBody');
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state"><div class="empty-state-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><div class="empty-state-title">No students found</div><div class="empty-state-text">Try adjusting your filters or check back later.</div></div></td></tr>`;
+      } else {
+        tbody.innerHTML = pageStudents.map(s => {
+          const score = getLatestScore(s);
+          const sim = getSimProgress(s);
+          const totalActivities = s.activities.interviews + s.activities.companies + s.activities.resumeReviews + s.activities.linkedinOptimizations;
+          
+          return `
+            <tr class="clickable" onclick="showStudentDetail('${s.id}')">
+              <td><div class="student-cell"><div class="student-avatar">${getInitials(s.name)}</div><div class="student-info"><span class="student-name">${s.name}</span><span class="student-email">${s.email}</span></div></div></td>
+              <td>${s.major}</td>
+              <td><span class="badge ${getScoreClass(score)}">${score !== null ? score : '--'}</span></td>
+              <td>${totalActivities} activities</td>
+              <td>${sim.completed}/${sim.total} sims</td>
+              <td><button class="view-btn" onclick="event.stopPropagation(); showStudentDetail('${s.id}')">View</button></td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      // Update pagination
+      document.getElementById('paginationInfo').textContent = `Showing ${start + 1}-${Math.min(end, filtered.length)} of ${filtered.length}`;
+      document.getElementById('studentCountBadge').textContent = filtered.length;
+
+      let paginationHtml = `<button class="pagination-btn" onclick="goToPage(${state.pagination.page - 1})"${state.pagination.page === 1 ? ' disabled' : ''}>‹</button>`;
+      for (let i = 1; i <= Math.min(totalPages, 5); i++) {
+        paginationHtml += `<button class="pagination-btn${i === state.pagination.page ? ' active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+      }
+      paginationHtml += `<button class="pagination-btn" onclick="goToPage(${state.pagination.page + 1})"${state.pagination.page === totalPages ? ' disabled' : ''}>›</button>`;
+      document.getElementById('paginationControls').innerHTML = paginationHtml;
+    }
+
+    function renderStudentDetail(studentId) {
+      const student = studentsData.find(s => s.id === studentId);
+      if (!student) return;
+
+      document.getElementById('studentDetailName').textContent = student.name;
+      const score = getLatestScore(student);
+
+      // Header
+      document.getElementById('studentDetailHeader').innerHTML = `
+        <div class="student-detail-avatar">${getInitials(student.name)}</div>
+        <div class="student-detail-info">
+          <div class="student-detail-name">${student.name} <span class="badge ${getScoreClass(score)}">${getScoreLabel(score)}</span></div>
+          <div class="student-detail-meta">
+            <span><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>${student.major}</span>
+            <span><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/></svg>Class of ${student.classYear}</span>
+            <span><svg viewBox="0 0 24 24"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>Current Score: <strong>${score !== null ? score : '--'}</strong></span>
+          </div>
+        </div>
+      `;
+
+      // Score history chart
+      const scoreCtx = document.getElementById('studentScoreChart');
+      if (scoreCtx && student.readinessScores.length > 0) {
+        charts.studentScore = new Chart(scoreCtx, {
+          type: 'line',
+          data: {
+            labels: student.readinessScores.map(r => new Date(r.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+            datasets: [{
+              label: 'Readiness Score',
+              data: student.readinessScores.map(r => r.score),
+              borderColor: '#008208',
+              backgroundColor: 'rgba(0,130,8,0.1)',
+              fill: true,
+              tension: 0.3,
+              pointBackgroundColor: '#008208',
+              pointRadius: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { beginAtZero: false, min: 0, max: 100 } }
+          }
+        });
+      }
+
+      // Activity grid
+      const a = student.activities;
+      const sim = getSimProgress(student);
+      document.getElementById('studentActivityGrid').innerHTML = `
+        <div class="activity-card ${a.interviews > 0 ? 'partial' : ''}"><div class="activity-card-icon blue"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div class="activity-card-value">${a.interviews}</div><div class="activity-card-label">Mock Interviews</div></div>
+        <div class="activity-card ${a.companies > 0 ? 'partial' : ''}"><div class="activity-card-icon green"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div><div class="activity-card-value">${a.companies}</div><div class="activity-card-label">Companies Researched</div></div>
+        <div class="activity-card ${a.resumeReviews > 0 ? 'partial' : ''}"><div class="activity-card-icon purple"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div class="activity-card-value">${a.resumeReviews}</div><div class="activity-card-label">Resume Reviews</div></div>
+        <div class="activity-card ${a.linkedinOptimizations > 0 ? 'partial' : ''}"><div class="activity-card-icon amber"><svg viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg></div><div class="activity-card-value">${a.linkedinOptimizations}</div><div class="activity-card-label">LinkedIn Analyses</div></div>
+        <div class="activity-card ${sim.pct >= 1 ? 'complete' : sim.completed > 0 ? 'partial' : ''}"><div class="activity-card-icon green"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div><div class="activity-card-value">${sim.completed}/${sim.total}</div><div class="activity-card-label">Simulations</div></div>
+      `;
+
+      // Simulations list
+      const majorSims = majorSimulations[student.major] || [];
+      let simsHtml = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+      
+      if (majorSims.length === 0) {
+        simsHtml += '<p style="color: #94a3b8;">No simulations mapped for this major</p>';
+      } else {
+        majorSims.forEach(simType => {
+          const simInfo = simulationTypes[simType] || { name: simType };
+          const studentSim = student.simulations[simType] || { status: 'not-started', score: null };
+          const statusClass = studentSim.status === 'completed' ? 'completed' : studentSim.status === 'in-progress' ? 'in-progress' : 'not-started';
+          const statusLabel = studentSim.status === 'completed' ? 'Completed' : studentSim.status === 'in-progress' ? 'In Progress' : 'Not Started';
+          
+          simsHtml += `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #f8fafc; border-radius: 8px;">
+              <span style="font-weight: 500;">${simInfo.name}</span>
+              <div style="display: flex; align-items: center; gap: 12px;">
+                ${studentSim.score ? `<span style="font-size: 13px; color: #64748b;">Score: <strong>${studentSim.score}</strong></span>` : ''}
+                <span class="badge ${statusClass}">${statusLabel}</span>
+              </div>
+            </div>
+          `;
+        });
+      }
+      simsHtml += '</div>';
+      document.getElementById('studentSimulationsContainer').innerHTML = simsHtml;
+
+      // Tool usage chart
+      const toolCtx = document.getElementById('studentToolChart');
+      if (toolCtx) {
+        charts.studentTool = new Chart(toolCtx, {
+          type: 'radar',
+          data: {
+            labels: ['Interviews', 'Companies', 'Resume', 'LinkedIn'],
+            datasets: [{
+              label: 'Activity',
+              data: [a.interviews, a.companies, a.resumeReviews, a.linkedinOptimizations],
+              backgroundColor: 'rgba(0,130,8,0.2)',
+              borderColor: '#008208',
+              pointBackgroundColor: '#008208'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { r: { beginAtZero: true } }
+          }
+        });
+      }
+    }
+
+    function renderTools() {
+      let totalInterviews = 0, totalCompanies = 0, totalResume = 0, totalLinkedin = 0, totalResources = 0;
+      
+      studentsData.forEach(s => {
+        totalInterviews += s.activities.interviews;
+        totalCompanies += s.activities.companies;
+        totalResume += s.activities.resumeReviews;
+        totalLinkedin += s.activities.linkedinOptimizations;
+        totalResources += s.resourceViews;
+      });
+
+      document.getElementById('toolsStats').innerHTML = `
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon blue"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div></div><div class="stat-value">${totalInterviews}</div><div class="stat-label">Mock Interviews</div></div>
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon green"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></div></div><div class="stat-value">${totalCompanies}</div><div class="stat-label">Companies Researched</div></div>
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon purple"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div></div><div class="stat-value">${totalResume}</div><div class="stat-label">Resume Reviews</div></div>
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon amber"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div></div><div class="stat-value">${totalResources}</div><div class="stat-label">Resource Views</div></div>
+      `;
+
+      // Tool breakdown chart
+      const breakdownCtx = document.getElementById('toolBreakdownChart');
+      if (breakdownCtx) {
+        charts.toolBreakdown = new Chart(breakdownCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Mock Interviews', 'Company Research', 'Resume Reviews', 'LinkedIn Analyses'],
+            datasets: [{
+              data: [totalInterviews, totalCompanies, totalResume, totalLinkedin],
+              backgroundColor: ['#2563eb', '#16a34a', '#7c3aed', '#d97706']
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'right' } }
+          }
+        });
+      }
+
+      // Resource views chart
+      const resourceCtx = document.getElementById('resourceViewsChart');
+      if (resourceCtx) {
+        // Group resource views by resource_id
+        const resourceCounts = {};
+        activityData.resourceViews.forEach(r => {
+          resourceCounts[r.resource_id] = (resourceCounts[r.resource_id] || 0) + 1;
+        });
+        
+        const sortedResources = Object.entries(resourceCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 8);
+
+        charts.resourceViews = new Chart(resourceCtx, {
+          type: 'bar',
+          data: {
+            labels: sortedResources.map(r => r[0]),
+            datasets: [{
+              label: 'Views',
+              data: sortedResources.map(r => r[1]),
+              backgroundColor: '#7c3aed'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: { legend: { display: false } }
+          }
+        });
+      }
+    }
+
+    function renderLearning() {
+      let totalCompleted = 0, totalInProgress = 0, totalScores = [];
+      
+      studentsData.forEach(s => {
+        Object.values(s.simulations).forEach(sim => {
+          if (sim.status === 'completed') {
+            totalCompleted++;
+            if (sim.score) totalScores.push(sim.score);
+          } else if (sim.status === 'in-progress') {
+            totalInProgress++;
+          }
+        });
+      });
+
+      const avgScore = totalScores.length ? Math.round(totalScores.reduce((a, b) => a + b, 0) / totalScores.length) : 0;
+      const totalSimTypes = Object.keys(simulationTypes).length;
+
+      document.getElementById('simStats').innerHTML = `
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon green"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div></div><div class="stat-value">${totalCompleted}</div><div class="stat-label">Simulations Completed</div></div>
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon amber"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div></div><div class="stat-value">${totalInProgress}</div><div class="stat-label">In Progress</div></div>
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon blue"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></div></div><div class="stat-value">${avgScore || '--'}</div><div class="stat-label">Average Score</div></div>
+        <div class="stat-card"><div class="stat-header"><div class="stat-icon purple"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div></div><div class="stat-value">${totalSimTypes}</div><div class="stat-label">Total Simulations</div></div>
+      `;
+
+      // SVG gradients
+      const svgDefs = '<svg width="0" height="0" style="position:absolute;"><defs><linearGradient id="greenGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#16a34a"/><stop offset="100%" stop-color="#22c55e"/></linearGradient><linearGradient id="amberGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#fbbf24"/></linearGradient><linearGradient id="redGradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#f87171"/></linearGradient></defs></svg>';
+
+      let html = svgDefs;
+
+      // Group students by major
+      const majors = [...new Set(studentsData.map(s => s.major))].filter(m => majorSimulations[m]);
+
+      majors.forEach(major => {
+        const majorStudents = studentsData.filter(s => s.major === major);
+        if (!majorStudents.length) return;
+
+        const simTypes = majorSimulations[major] || [];
+        let majorCompleted = 0, majorTotal = 0;
+
+        majorStudents.forEach(s => {
+          simTypes.forEach(simType => {
+            majorTotal++;
+            if (s.simulations[simType]?.status === 'completed') majorCompleted++;
+          });
+        });
+
+        const completedPct = majorTotal ? Math.round((majorCompleted / majorTotal) * 100) : 0;
+        const inProgressCount = majorStudents.filter(s => simTypes.some(t => s.simulations[t]?.status === 'in-progress')).length;
+        const inProgressPct = majorStudents.length ? Math.round((inProgressCount / majorStudents.length) * 100) : 0;
+
+        html += `
+          <div class="major-section">
+            <div class="major-section-title">
+              <h3><div class="major-icon"><svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div>${major}</h3>
+              <div class="major-section-meta">
+                <div class="major-section-meta-item"><strong>${majorStudents.length}</strong> students</div>
+                <div class="major-section-meta-item"><strong>${simTypes.length}</strong> simulations</div>
+              </div>
+            </div>
+            <div class="major-progress-bar">
+              <div class="completed" style="width:${completedPct}%;"></div>
+              <div class="in-progress" style="width:${inProgressPct}%;"></div>
+            </div>
+            <div class="sim-ring-grid">
+        `;
+
+        simTypes.forEach(simType => {
+          const simInfo = simulationTypes[simType] || { name: simType };
+          const data = { completed: [], inProgress: [], notStarted: [] };
+          let simScores = [];
+
+          majorStudents.forEach(s => {
+            const studentSim = s.simulations[simType];
+            if (!studentSim || studentSim.status === 'not-started') {
+              data.notStarted.push(s);
+            } else if (studentSim.status === 'in-progress') {
+              data.inProgress.push(s);
+            } else {
+              data.completed.push(s);
+              if (studentSim.score) simScores.push(studentSim.score);
+            }
+          });
+
+          const simCompletedPct = majorStudents.length ? Math.round((data.completed.length / majorStudents.length) * 100) : 0;
+          const avgSimScore = simScores.length ? Math.round(simScores.reduce((a, b) => a + b, 0) / simScores.length) : null;
+          const ringColor = simCompletedPct >= 70 ? 'green' : simCompletedPct >= 30 ? 'amber' : 'red';
+          const radius = 58;
+          const circumference = 2 * Math.PI * radius;
+          const offset = circumference - (simCompletedPct / 100) * circumference;
+
+          html += `
+            <div class="sim-ring-card ${ringColor}-border">
+              <div class="progress-ring">
+                <svg width="140" height="140" viewBox="0 0 140 140">
+                  <circle class="progress-ring-bg" cx="70" cy="70" r="${radius}"/>
+                  <circle class="progress-ring-fill ${ringColor}" cx="70" cy="70" r="${radius}" stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"/>
+                </svg>
+                <div class="progress-ring-center">
+                  <div class="progress-ring-pct">${simCompletedPct}%</div>
+                  <div class="progress-ring-label">complete</div>
+                </div>
+              </div>
+              <div class="sim-ring-name">${simInfo.name}</div>
+              <div class="sim-ring-stats">
+                <div class="sim-ring-stat"><div class="sim-ring-stat-value green">${data.completed.length}</div><div class="sim-ring-stat-label">Done</div></div>
+                <div class="sim-ring-stat"><div class="sim-ring-stat-value amber">${data.inProgress.length}</div><div class="sim-ring-stat-label">Active</div></div>
+                <div class="sim-ring-stat"><div class="sim-ring-stat-value gray">${data.notStarted.length}</div><div class="sim-ring-stat-label">Pending</div></div>
+              </div>
+              ${avgSimScore ? `<div class="sim-avg-score"><svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:#64748b;fill:none;stroke-width:2;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Avg Score: <strong>${avgSimScore}</strong></div>` : ''}
+            </div>
+          `;
+        });
+
+        html += '</div></div>';
+      });
+
+      document.getElementById('majorCardsContainer').innerHTML = html;
+    }
+
+    // =====================================================
+    // INTERACTION HANDLERS
+    // =====================================================
+    function applyFilters() {
+      state.filters.major = document.getElementById('filterMajor').value;
+      state.filters.classYear = document.getElementById('filterClass').value;
+      state.pagination.page = 1;
+      renderStudents();
+    }
+
+    function sortTable(field) {
+      if (state.sort.field === field) {
+        state.sort.direction = state.sort.direction === 'asc' ? 'desc' : 'asc';
+      } else {
+        state.sort.field = field;
+        state.sort.direction = 'desc';
+      }
+      renderStudents();
+    }
+
+    function goToPage(page) {
+      state.pagination.page = page;
+      renderStudents();
+    }
+
+    function handleGlobalSearch() {
+      const q = document.getElementById('globalSearch').value.toLowerCase();
+      if (q.length < 2) return;
+      
+      const matches = studentsData.filter(s => 
+        s.name.toLowerCase().includes(q) || 
+        s.email.toLowerCase().includes(q)
+      );
+      
+      if (matches.length === 1) {
+        showStudentDetail(matches[0].id);
+        document.getElementById('globalSearch').value = '';
+      } else if (matches.length > 1) {
+        state.filters = { major: '', classYear: '' };
+        showView('students');
+      }
+    }
+
+    function exportData() {
+      let csv = 'Name,Email,Major,Class,Readiness Score,Interviews,Companies,Resume Reviews,LinkedIn,Sims Completed\n';
+      
+      studentsData.forEach(s => {
+        const sim = getSimProgress(s);
+        const score = getLatestScore(s);
+        csv += `"${s.name}","${s.email}","${s.major}",${s.classYear},${score !== null ? score : ''},${s.activities.interviews},${s.activities.companies},${s.activities.resumeReviews},${s.activities.linkedinOptimizations},${sim.completed}/${sim.total}\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `cloverpath-${organizationName.toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+    }
+
+    function toggleMobileMenu() {
+      document.getElementById('sidebar').classList.toggle('mobile-open');
+    }
+
+    function closeMobileMenu() {
+      document.getElementById('sidebar').classList.remove('mobile-open');
+    }
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', e => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        document.getElementById('globalSearch').focus();
+      }
+      if (e.key === 'Escape') closeMobileMenu();
+    });
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', () => initialize());
+  </script>
+</body>
+</html>
