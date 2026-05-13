@@ -1711,7 +1711,7 @@ function renderScoreBanner(analysis, jobTitle) {
     const circumference = 2 * Math.PI * 48; // r=48
     const offset = circumference * (1 - s / 100);
     ringFill.style.strokeDashoffset = offset;
-    ringEl.className = 'ra-score-ring ' + (color !== 'green' ? color : '');
+    ringEl.setAttribute('class', 'ra-score-ring' + (color !== 'green' ? ' ' + color : ''));
 
     // Subscores
     const subscores = [
