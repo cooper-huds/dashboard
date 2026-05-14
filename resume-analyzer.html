@@ -1109,13 +1109,17 @@ function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 //  TEXT CLEANING
 // ═══════════════════════════════════════════════════════════════════════════════
 function cleanText(raw) {
-    return raw
+    let text = raw
         // Remove non-printable / control characters (keep newlines and tabs)
-        .replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\u024F]/g, ' ')
-        // Remove lines that are clearly PDF artifacts:
-        // - lines with 3 or fewer characters
-        // - lines that are purely numeric (page numbers, encoding IDs)
-        // - lines that are purely symbolic / no letters at all
+        .replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\u024F]/g, ' ');
+
+    // Detect and fix spaced-out characters: "P r o f e s s i o n a l" → "Professional"
+    // Pattern: single chars separated by single spaces, 4+ in a row
+    text = text.replace(/((?:[A-Za-z] ){3,}[A-Za-z])/g, match =>
+        match.replace(/ /g, '')
+    );
+
+    return text
         .split('\n')
         .filter(line => {
             const t = line.trim();
@@ -1125,9 +1129,7 @@ function cleanText(raw) {
             return true;
         })
         .join('\n')
-        // Collapse runs of 3+ spaces into a single space
         .replace(/ {3,}/g, ' ')
-        // Collapse 3+ consecutive newlines into two
         .replace(/\n{3,}/g, '\n\n')
         .trim();
 }
@@ -1154,16 +1156,44 @@ async function extractText(file) {
             const content = await page.getTextContent({ includeMarkedContent: false });
             const items = content.items;
             if (!items.length) continue;
-            let lastY = null;
+
+            let lastY   = null;
+            let lastX   = null;
+            let lastW   = 0;
+            let line    = '';
+
             for (const item of items) {
-                // Guard: MarkedContent items lack transform/str
                 if (!item.transform || typeof item.str !== 'string') continue;
+                const str = item.str;
+                if (!str) continue;
+
+                const x = item.transform[4];
                 const y = Math.round(item.transform[5]);
-                if (lastY !== null && Math.abs(y - lastY) > 3) text += '\n';
-                text += item.str + ' ';
-                lastY = y;
+
+                // New line when Y position changes meaningfully
+                if (lastY !== null && Math.abs(y - lastY) > 3) {
+                    text += line.trim() + '\n';
+                    line  = '';
+                    lastX = null;
+                    lastW = 0;
+                }
+
+                // Decide whether to add a space between this item and the previous
+                // If items are adjacent (x ≈ lastX + lastW) no space needed
+                // If there's a gap larger than ~1 char width, add a space
+                if (lastX !== null && line.length > 0) {
+                    const gap = x - (lastX + lastW);
+                    // gap > 1 means a real word space; gap < -2 means overlap (ignore)
+                    if (gap > 1) line += ' ';
+                }
+
+                line  += str;
+                lastX  = x;
+                lastW  = item.width || 0;
+                lastY  = y;
             }
-            text += '\n\n';
+            if (line.trim()) text += line.trim() + '\n';
+            text += '\n';
         }
         if (text.trim().length < 50) throw new Error('Could not extract text from this PDF. Try saving it as TXT.');
         return text;
@@ -1214,15 +1244,15 @@ async function extractDocxText(arrayBuffer) {
 // ═══════════════════════════════════════════════════════════════════════════════
 const SECTION_PATTERNS = {
     contact:     /\b(email|phone|linkedin|github|address|location|mobile|portfolio)\b/i,
-    summary:     /^(summary|objective|profile|about|professional\s+summary|career\s+objective|about\s+me)/im,
-    skills:      /^(skills|technical\s+skills|core\s+competencies|competencies|technologies|tools|expertise|proficiencies)/im,
-    experience:  /^(experience|work\s+experience|employment|professional\s+experience|career|work\s+history)/im,
-    education:   /^(education|academic|degrees?|qualifications?|schooling|university|college)/im,
-    projects:    /^(projects?|portfolio|work\s+samples?|side\s+projects?|personal\s+projects?)/im,
-    certifications: /^(certifications?|certificates?|licenses?|credentials?|accreditations?)/im,
-    awards:      /^(awards?|honors?|achievements?|recognition|accomplishments?)/im,
-    publications: /^(publications?|research|papers?|articles?|conferences?)/im,
-    volunteering: /^(volunteer|volunteering|community|civic|non-?profit)/im,
+    summary:     /\b(summary|objective|profile|about me|professional summary|career objective|personal statement)\b/i,
+    skills:      /\b(skills|technical skills|core competencies|competencies|technologies|tools|expertise|proficiencies|skills and abilities)\b/i,
+    experience:  /\b(experience|work experience|employment|professional experience|career history|work history)\b/i,
+    education:   /\b(education|academic background|degrees?|qualifications?|schooling)\b/i,
+    projects:    /\b(projects?|portfolio|work samples?|side projects?|personal projects?)\b/i,
+    certifications: /\b(certifications?|certificates?|licenses?|credentials?|accreditations?)\b/i,
+    awards:      /\b(awards?|honors?|achievements?|recognition|accomplishments?)\b/i,
+    publications: /\b(publications?|research|papers?|articles?|conferences?)\b/i,
+    volunteering: /\b(volunteer|volunteering|community service|civic|non-?profit)\b/i,
 };
 
 function detectSections(text) {
@@ -1257,10 +1287,17 @@ function detectSections(text) {
 
     for (const line of lines) {
         let matched = null;
-        for (const [key, pattern] of Object.entries(SECTION_PATTERNS)) {
-            if (key !== 'contact' && pattern.test(line) && line.length < 60) {
-                matched = key;
-                break;
+        // Only treat as a section header if:
+        // - line is short (under 50 chars) — headers are never long sentences
+        // - line doesn't start with a bullet character
+        // - the pattern matches
+        const isBulletLine = /^[\u2022\u2023\u25e6\u2043\u2219\-\*\•\·\►\→\>\+]/.test(line);
+        if (!isBulletLine && line.length < 50) {
+            for (const [key, pattern] of Object.entries(SECTION_PATTERNS)) {
+                if (key !== 'contact' && pattern.test(line)) {
+                    matched = key;
+                    break;
+                }
             }
         }
         if (matched) {
